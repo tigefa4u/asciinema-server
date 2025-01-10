@@ -1,0 +1,299 @@
+<div class="container edit-page">
+  <div class="row user-form">
+    <div class="col-md-12 col-lg-9">
+      <.form
+        :let={f}
+        for={@changeset}
+        action={~p"/user"}
+        class="simple_form form-horizontal"
+        novalidate="novalidate"
+        role="form"
+      >
+        <legend>Account</legend>
+
+        <div class={["form-group row email required user_email", error_class(f, :email)]}>
+          <.label for={f[:email]} class="email required col-form-label col-3">Email</.label>
+          <div class="col-9">
+            <.input field={f[:email]} type="email" class="string email required form-control" />
+            <.error field={f[:email]} />
+          </div>
+        </div>
+
+        <div class="form-group row">
+          <div class="offset-3 col-9">
+            <br />
+            <.button type="submit" class="btn btn-primary">Update</.button>
+          </div>
+        </div>
+      </.form>
+
+      <.form
+        :let={f}
+        for={@changeset}
+        action={~p"/user"}
+        class="simple_form form-horizontal"
+        novalidate="novalidate"
+        role="form"
+      >
+        <legend>Profile</legend>
+
+        <div class={["form-group row string optional user_username", error_class(f, :username)]}>
+          <.label for={f[:username]} class="string optional col-form-label col-3">
+            Username
+          </.label>
+          <div class="col-9">
+            <.input field={f[:username]} class="string optional form-control" />
+            <.error field={f[:username]} />
+          </div>
+        </div>
+
+        <div class={["form-group row string optional user_name", error_class(f, :name)]}>
+          <.label for={f[:name]} class="string optional col-form-label col-3">
+            Display name
+          </.label>
+          <div class="col-9">
+            <.input
+              field={f[:name]}
+              class="string optional form-control"
+              placeholder={@changeset.data.username}
+            />
+            <.error field={f[:name]} />
+          </div>
+        </div>
+
+        <div class="form-group row">
+          <div class="offset-3 col-9">
+            <br />
+            <.button type="submit" class="btn btn-primary">Update</.button>
+          </div>
+        </div>
+      </.form>
+
+      <.form
+        :let={f}
+        for={@changeset}
+        action={~p"/user"}
+        class="simple_form form-horizontal"
+        novalidate="novalidate"
+        role="form"
+      >
+        <legend>Defaults</legend>
+
+        <p>
+          The settings below control the defaults for your uploaded recordings. <br />
+          <br />
+        </p>
+
+        <div class="form-group row">
+          <.label for={f[:default_asciicast_visibility]} class="col-3 col-form-label">
+            Recording visibility
+          </.label>
+          <div class="col-9 visibility-radios">
+            <div class="form-check">
+              <input
+                type="radio"
+                name="user[default_asciicast_visibility]"
+                id="user_default_asciicast_visibility_public"
+                value="public"
+                checked={f[:default_asciicast_visibility].value == :public}
+                class="form-check-input"
+              />
+              <label for="user_default_asciicast_visibility_public" class="form-check-label">
+                Public
+              </label>
+              <small class="form-text text-muted">
+                Anyone can view, listed on your public profile
+              </small>
+            </div>
+            <div class="form-check">
+              <input
+                type="radio"
+                name="user[default_asciicast_visibility]"
+                id="user_default_asciicast_visibility_unlisted"
+                value="unlisted"
+                checked={f[:default_asciicast_visibility].value == :unlisted}
+                class="form-check-input"
+              />
+              <label for="user_default_asciicast_visibility_unlisted" class="form-check-label">
+                Unlisted
+              </label>
+              <small class="form-text text-muted">
+                Only people with the link can view
+              </small>
+            </div>
+            <div class="form-check">
+              <input
+                type="radio"
+                name="user[default_asciicast_visibility]"
+                id="user_default_asciicast_visibility_private"
+                value="private"
+                checked={f[:default_asciicast_visibility].value == :private}
+                class="form-check-input"
+              />
+              <label for="user_default_asciicast_visibility_private" class="form-check-label">
+                Private
+              </label>
+              <small class="form-text text-muted">
+                Only accessible by you
+              </small>
+            </div>
+            <small class="form-text text-muted">
+              NOTE: This setting applies to *new* uploads. Existing recordings are not affected by changes to this setting.
+            </small>
+          </div>
+        </div>
+
+        <div class="form-group row select optional user_theme_name">
+          <.label for={f[:theme_name]} class="col-3 select optional col-form-label">
+            Terminal theme
+          </.label>
+          <div class="col-9">
+            <div>
+              <.input
+                type="select"
+                field={f[:theme_name]}
+                options={theme_options()}
+                class="optional form-control"
+                prompt="Default (asciinema)"
+              />
+            </div>
+            <small class="form-text text-muted">
+              A default theme for recordings that don't explicitly override it.
+            </small>
+          </div>
+        </div>
+
+        <div class="form-group row">
+          <div class="offset-3 col-9">
+            <div class="form-check">
+              <.input type="checkbox" field={f[:theme_prefer_original]} class="form-check-input" />
+              <.label for={f[:theme_prefer_original]} class="form-check-label">
+                Prefer original terminal theme
+              </.label>
+            </div>
+            <small class="form-text text-muted">
+              This automatically sets the theme to "Original" for every newly uploaded recording which contains a theme (supported by asciinema CLI 3.0 or later).
+            </small>
+          </div>
+        </div>
+
+        <div class="form-group row">
+          <.label for={f[:terminal_font_family]} class="col-sm-4 col-md-3 col-form-label">
+            Terminal font family
+          </.label>
+          <div class="col-sm-8 col-md-9">
+            <.input
+              type="select"
+              field={f[:terminal_font_family]}
+              options={font_family_options()}
+              class="form-control"
+              prompt={"Default (#{default_font_display_name()})"}
+            />
+            <small class="form-text text-muted">
+              A default font for recordings that don't explicitly override it.
+            </small>
+          </div>
+        </div>
+
+        <div class="form-group row">
+          <div class="offset-3 col-9">
+            <br />
+            <.button type="submit" class="btn btn-primary">Update</.button>
+          </div>
+        </div>
+      </.form>
+    </div>
+  </div>
+
+  <div class="row tokens-list">
+    <div class="col-md-12">
+      <form>
+        <legend>CLI</legend>
+
+        <p>To associate the uploaded recordings with your account, you need to
+          authenticate asciinema CLI on every new system from which you upload.</p>
+
+        <p>
+          Run <code>asciinema auth</code>
+          to do this. For more information see the <a href="https://docs.asciinema.org/manual/cli/usage/#asciinema-auth">documentation</a>.
+        </p>
+
+        <%= if present?(@api_tokens) do %>
+          <p>
+            The following asciinema CLI installations have been authenticated with your account:
+          </p>
+
+          <table class="table install-ids">
+            <thead>
+              <th>Installation ID</th>
+              <th>Registered at</th>
+              <th></th>
+            </thead>
+            <tbody>
+              <tr :for={t <- active_tokens(@api_tokens)}>
+                <td>
+                  <code><%= t.token %></code>
+                </td>
+                <td>
+                  <%= time_tag(t.inserted_at) %>
+                </td>
+                <td>
+                  <.link
+                    href={~p"/api_tokens/#{t}"}
+                    class="btn btn-danger btn-sm"
+                    method="delete"
+                    data-confirm="Are you sure? This will prevent future uploads from that system."
+                  >
+                    Revoke
+                  </.link>
+                </td>
+              </tr>
+
+              <tr :for={t <- revoked_tokens(@api_tokens)} class="revoked">
+                <td>
+                  <code><%= t.token %></code>
+                </td>
+                <td>
+                  <%= time_tag(t.inserted_at) %>
+                </td>
+                <td>
+                  Revoked <%= time_ago_tag(t.revoked_at) %>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            The installation ID of your local system is stored in the
+            <code>$HOME/.config/asciinema/install-id</code>
+            file.
+          </p>
+        <% else %>
+          <p>There is currently no CLI authenticated with this account.</p>
+        <% end %>
+      </form>
+    </div>
+  </div>
+
+  <div class="row danger-zone">
+    <div class="col-md-12 col-lg-9">
+      <form>
+        <legend>Delete account</legend>
+      </form>
+
+      <p>
+        If you ever decide to delete your <%= @conn.host %> account you can do so by clicking that big red button below.
+      </p>
+
+      <p>
+        <.link href={~p"/user"} class="btn btn-danger" method="delete">
+          Delete my account
+        </.link>
+      </p>
+
+      <p>
+        NOTE: You'll get a confirmation email sent to <%= @changeset.data.email %>. Open the link from the email to confirm account deletion.
+      </p>
+    </div>
+  </div>
+</div>

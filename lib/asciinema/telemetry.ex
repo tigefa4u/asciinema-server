@@ -11,17 +11,14 @@ defmodule Asciinema.Telemetry do
   end
 
   def init(_arg) do
-    children = [
-      {:telemetry_poller, period: 10_000},
-      {TelemetryMetricsPrometheus, metrics: metrics()}
-    ]
+    children = [{:telemetry_poller, period: 10_000}]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
 
   @buckets [5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000]
 
-  defp metrics do
+  def metrics do
     repo_distribution = [
       unit: {:native, :millisecond},
       tags: [:query, :source],
@@ -31,7 +28,7 @@ defmodule Asciinema.Telemetry do
 
     phoenix_distribution = [
       unit: {:native, :millisecond},
-      tags: [:plug, :route, :method, :status],
+      tags: [:plug, :route, :method, :status, :event],
       tag_values: &phoenix_router_dispatch_tag_values/1,
       reporter_options: [buckets: @buckets]
     ]
@@ -63,7 +60,14 @@ defmodule Asciinema.Telemetry do
       distribution("asciinema.repo.query.queue_time", repo_distribution),
 
       # Phoenix
+      distribution("phoenix.endpoint.start.system_time", phoenix_distribution),
+      distribution("phoenix.endpoint.stop.duration", phoenix_distribution),
+      distribution("phoenix.router_dispatch.start.system_time", phoenix_distribution),
+      distribution("phoenix.router_dispatch.exception.duration", phoenix_distribution),
       distribution("phoenix.router_dispatch.stop.duration", phoenix_distribution),
+      distribution("phoenix.socket_connected.duration", phoenix_distribution),
+      distribution("phoenix.channel_join.duration", phoenix_distribution),
+      distribution("phoenix.channel_handled_in.duration", phoenix_distribution),
 
       # Oban
       counter("oban.job.start.count", oban_counter),

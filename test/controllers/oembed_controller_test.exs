@@ -1,46 +1,45 @@
 defmodule Asciinema.OembedControllerTest do
   use AsciinemaWeb.ConnCase
   import Asciinema.Factory
-  alias AsciinemaWeb.Endpoint
 
   describe "show" do
-    test "for JSON format", %{conn: conn} do
+    test "JSON format", %{conn: conn} do
       asciicast = insert(:asciicast)
-      url = Routes.recording_url(Endpoint, :show, asciicast)
+      url = ~p"/a/#{asciicast}"
 
       conn =
-        get(
-          conn,
-          Routes.oembed_path(conn, :show,
-            url: url,
-            format: "json",
-            maxwidth: "500",
-            maxheight: "300"
-          )
-        )
+        get(conn, ~p"/oembed?#{%{url: url, format: "json", maxwidth: "500", maxheight: "300"}}")
 
-      assert response(conn, 200)
-      assert response_content_type(conn, :json)
+      assert json_response(conn, 200)
     end
 
-    test "for XML format", %{conn: conn} do
+    test "XML format", %{conn: conn} do
       asciicast = insert(:asciicast)
-      url = Routes.recording_url(Endpoint, :show, asciicast)
+      url = ~p"/a/#{asciicast}"
 
-      conn = get(conn, Routes.oembed_path(conn, :show, url: url, format: "xml"))
+      conn = get(conn, ~p"/oembed?#{%{url: url, format: "xml"}}")
 
       assert response(conn, 200)
       assert response_content_type(conn, :xml)
     end
 
-    test "for maxwidth without maxheight", %{conn: conn} do
+    test "maxwidth without maxheight", %{conn: conn} do
       asciicast = insert(:asciicast)
-      url = Routes.recording_url(Endpoint, :show, asciicast)
+      url = ~p"/a/#{asciicast}"
 
-      conn = get(conn, Routes.oembed_path(conn, :show, url: url, format: "json", maxwidth: "500"))
+      conn = get(conn, ~p"/oembed?#{%{url: url, format: "json", maxwidth: "500"}}")
 
-      assert response(conn, 200)
-      assert response_content_type(conn, :json)
+      assert json_response(conn, 200)
+    end
+
+    test "private recording", %{conn: conn} do
+      asciicast = insert(:asciicast, visibility: :private)
+      url = ~p"/a/#{asciicast}"
+
+      conn =
+        get(conn, ~p"/oembed?#{%{url: url, format: "json", maxwidth: "500", maxheight: "300"}}")
+
+      assert json_response(conn, 403)
     end
   end
 end

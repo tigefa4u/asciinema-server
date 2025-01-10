@@ -9,9 +9,8 @@ config :asciinema, Asciinema.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 
-if db_url = System.get_env("TEST_DATABASE_URL") do
-  System.put_env("DATABASE_URL", db_url)
-end
+# In test we don't send emails.
+config :asciinema, Asciinema.Emails.Mailer, adapter: Swoosh.Adapters.Test
 
 # Print only errors during test
 config :logger, level: :error
@@ -31,10 +30,8 @@ config :asciinema, Asciinema.Accounts,
 
 config :asciinema, Asciinema.FileStore.Local, path: "uploads/test/"
 
-config :asciinema, :snapshot_updater, Asciinema.Recordings.SnapshotUpdater.Noop
+config :asciinema, Asciinema.FileCache, path: "/tmp/asciinema/"
 
 config :asciinema, Oban, testing: :manual
-
-config :asciinema, Asciinema.Emails.Mailer, adapter: Bamboo.TestAdapter
 
 config :asciinema, Asciinema.Telemetry, enabled: false

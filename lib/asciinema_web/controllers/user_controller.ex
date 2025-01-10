@@ -1,17 +1,14 @@
 defmodule AsciinemaWeb.UserController do
   use AsciinemaWeb, :controller
-  alias Asciinema.Accounts
-  alias Asciinema.Authorization, as: Authz
-  alias Asciinema.Recordings
-  alias AsciinemaWeb.Auth
+  alias Asciinema.{Accounts, Streaming, Recordings}
+  require Logger
 
-  plug :clear_main_class
   plug :require_current_user when action in [:edit, :update]
 
-  def new(conn, %{"t" => signup_token}) do
+  def new(conn, %{"t" => sign_up_token}) do
     conn
-    |> put_session(:signup_token, signup_token)
-    |> redirect(to: Routes.users_path(conn, :new))
+    |> put_session(:sign_up_token, sign_up_token)
+    |> redirect(to: ~p"/users/new")
   end
 
   def new(conn, _params) do
@@ -19,79 +16,86 @@ defmodule AsciinemaWeb.UserController do
   end
 
   def create(conn, _params) do
-    signup_token = get_session(conn, :signup_token)
-    conn = delete_session(conn, :signup_token)
+    token = get_session(conn, :sign_up_token)
+    conn = delete_session(conn, :sign_up_token)
 
-    case Accounts.verify_signup_token(signup_token) do
+    case Asciinema.create_user_from_sign_up_token(token) do
       {:ok, user} ->
         conn
-        |> Auth.log_in(user)
+        |> log_in(user)
         |> put_flash(:info, "Welcome to asciinema!")
-        |> redirect(to: Routes.username_path(conn, :new))
+        |> redirect(to: ~p"/username/new")
 
       {:error, :token_invalid} ->
         conn
         |> put_flash(:error, "Invalid sign-up link.")
-        |> redirect(to: Routes.login_path(conn, :new))
+        |> redirect(to: ~p"/login/new")
 
       {:error, :token_expired} ->
         conn
         |> put_flash(:error, "This sign-up link has expired, sorry.")
-        |> redirect(to: Routes.login_path(conn, :new))
+        |> redirect(to: ~p"/login/new")
 
       {:error, :email_taken} ->
         conn
         |> put_flash(:error, "You already signed up with this email.")
-        |> redirect(to: Routes.login_path(conn, :new))
+        |> redirect(to: ~p"/login/new")
     end
   end
 
   def show(conn, params) do
-    with {:ok, user} <- fetch_user(params) do
+    if user = get_user(params) do
       do_show(conn, params, user)
+    else
+      {:error, :not_found}
     end
   end
 
   defp do_show(conn, params, user) do
     current_user = conn.assigns.current_user
-    user_is_self = !!(current_user && current_user.id == user.id)
+    self = !!(current_user && current_user.id == user.id)
 
     filter =
-      case user_is_self do
+      case self do
         true -> :all
         false -> :public
       end
 
-    page =
+    streams =
+      case self do
+        true -> Streaming.list_all_live_streams(user)
+        false -> Streaming.list_public_live_streams(user)
+      end
+
+    asciicasts =
       Recordings.paginate_asciicasts(
         {user.id, filter},
         :date,
         params["page"],
-        15
+        14
       )
 
-    conn
-    |> assign(:page_title, "#{user.username}'s profile")
-    |> assign(:main_class, "")
-    |> render(
+    render(
+      conn,
       "show.html",
+      page_title: "#{user.username}'s profile",
       user: user,
-      user_is_self: user_is_self,
-      asciicast_count: page.total_entries,
-      page: page,
-      show_edit_link: Authz.can?(current_user, :update, user)
+      self: self,
+      streams: streams,
+      asciicasts: asciicasts
     )
   end
 
-  defp fetch_user(%{"id" => id}) do
-    case Integer.parse(id) do
-      {id, ""} -> Accounts.fetch_user(id)
-      _ -> {:error, :not_found}
+  defp get_user(%{"id" => id}) do
+    if String.match?(id, ~r/^\d+$/) do
+      Accounts.get_user(id)
+    else
+      Accounts.find_user_by_username(id)
     end
   end
 
-  defp fetch_user(%{"username" => username}) do
-    Accounts.fetch_user(username: username)
+  defp get_user(%{"username" => username}) do
+    Accounts.find_user_by_username(username)
   end
 
   def edit(conn, _params) do
@@ -104,10 +108,10 @@ defmodule AsciinemaWeb.UserController do
     user = conn.assigns.current_user
 
     case Accounts.update_user(user, user_params) do
-      {:ok, user} ->
+      {:ok, _user} ->
         conn
-        |> put_flash(:info, "Account settings saved.")
-        |> redirect(to: profile_path(conn, user))
+        |> put_flash(:info, "Settings updated")
+        |> redirect(to: ~p"/user/edit")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         render_edit_form(conn, user, changeset)
@@ -121,5 +125,43 @@ defmodule AsciinemaWeb.UserController do
       changeset: changeset,
       api_tokens: api_tokens
     )
+  end
+
+  def delete(conn, %{"token" => token, "confirmed" => _}) do
+    case Asciinema.delete_user(token) do
+      :ok ->
+        conn
+        |> log_out()
+        |> put_flash(:info, "Account deleted")
+        |> redirect(to: ~p"/")
+
+      {:error, :invalid_token} ->
+        conn
+        |> put_flash(:error, "Invalid account deletion token")
+        |> redirect(to: ~p"/")
+    end
+  end
+
+  def delete(conn, %{"t" => token}) do
+    render(conn, :delete, token: token)
+  end
+
+  def delete(conn, _params) do
+    user = conn.assigns.current_user
+    address = user.email
+
+    case Asciinema.send_account_deletion_email(user, AsciinemaWeb.UrlProvider) do
+      :ok ->
+        conn
+        |> put_flash(:info, "Account removal initiated - check your inbox (#{address})")
+        |> redirect(to: profile_path(conn))
+
+      {:error, reason} ->
+        Logger.warning("email delivery error: #{inspect(reason)}")
+
+        conn
+        |> put_flash(:error, "Error sending email, please try again later")
+        |> redirect(to: ~p"/user/edit")
+    end
   end
 end

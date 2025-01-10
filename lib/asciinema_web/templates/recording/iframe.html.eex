@@ -1,7 +1,0 @@
-<div id="player" style="width: 100%"></div>
-
-<%= player @asciicast, Keyword.merge(@playback_options, container_id: "player", fit: "width") %>
-
-<p class="powered">
-  Recorded with <a href="<%= root_url() %>" target="_top">asciinema</a>
-</p>

@@ -1,18 +1,20 @@
 defmodule AsciinemaWeb.RecordingController do
   use AsciinemaWeb, :controller
-  alias Asciinema.{Recordings, PngGenerator, Accounts}
+  alias Asciinema.{FileStore, Recordings, PngGenerator}
   alias Asciinema.Recordings.Asciicast
+  alias AsciinemaWeb.{PlayerOpts, RecordingHTML}
+  alias AsciinemaWeb.Plug.Authn
 
-  plug :clear_main_class
   plug :load_asciicast when action in [:show, :edit, :update, :delete, :iframe]
+  plug :require_current_user_when_private when action in [:show, :iframe]
   plug :require_current_user when action in [:edit, :update, :delete]
-  plug :authorize, :asciicast when action in [:edit, :update, :delete]
+  plug :authorize, :asciicast when action in [:show, :edit, :update, :delete, :iframe]
 
   def index(conn, params) do
     category = params[:category]
     order = if params["order"] == "popularity", do: :popularity, else: :date
 
-    page = Recordings.paginate_asciicasts(category, order, params["page"], 12)
+    page = Recordings.paginate_asciicasts(category, order, params["page"], 14)
 
     assigns = [
       page_title: String.capitalize("#{category} recordings"),
@@ -51,18 +53,17 @@ defmodule AsciinemaWeb.RecordingController do
     if asciicast.archived_at do
       conn
       |> put_status(410)
-      |> render("archived.html")
+      |> render(:deleted, ttl: Asciinema.unclaimed_recording_ttl())
     else
       conn
       |> count_view(asciicast)
-      |> put_archival_info_flash(asciicast)
       |> render(
-        "show.html",
-        page_title: AsciinemaWeb.RecordingView.title(asciicast),
+        :show,
+        page_title: Recordings.title(asciicast),
         asciicast: asciicast,
-        playback_options: playback_options(conn.params),
+        player_opts: player_opts(conn.params),
         actions: asciicast_actions(asciicast, conn.assigns.current_user),
-        author_asciicasts: Recordings.other_public_asciicasts(asciicast)
+        author_asciicasts: Recordings.list_other_public_asciicasts(asciicast)
       )
     end
   end
@@ -75,7 +76,7 @@ defmodule AsciinemaWeb.RecordingController do
 
       conn
       |> put_resp_header("access-control-allow-origin", "*")
-      |> file_store().serve_file(asciicast.path, filename)
+      |> FileStore.serve_file(asciicast.path, filename)
     end
   end
 
@@ -90,16 +91,40 @@ defmodule AsciinemaWeb.RecordingController do
     |> send_file(200, path)
   end
 
+  def do_show(conn, "txt", asciicast) do
+    if asciicast.archived_at do
+      conn
+      |> put_status(410)
+      |> text("This recording has been deleted\n")
+    else
+      send_download(conn, {:file, Recordings.text_file_path(asciicast)},
+        filename: "#{asciicast.id}.txt"
+      )
+    end
+  end
+
+  # 1 hour
+  @svg_max_age 3600
+
   def do_show(conn, "svg", asciicast) do
     if asciicast.archived_at do
       path = Application.app_dir(:asciinema, "priv/static/images/archived.png")
 
       conn
       |> put_status(410)
-      |> put_resp_header("content-type", "image/png")
+      |> put_resp_content_type("image/png")
       |> send_file(200, path)
     else
-      render(conn, "show.svg", asciicast: asciicast)
+      variant =
+        case conn.params["f"] do
+          "t" -> :thumbnail
+          _ -> :show
+        end
+
+      conn
+      |> put_resp_header("cache-control", "public, max-age=#{@svg_max_age}, must-revalidate")
+      |> put_etag(RecordingHTML.svg_cache_key(asciicast))
+      |> render(variant, asciicast: asciicast)
     end
   end
 
@@ -112,16 +137,16 @@ defmodule AsciinemaWeb.RecordingController do
 
       conn
       |> put_status(410)
-      |> put_resp_header("content-type", "image/png")
+      |> put_resp_content_type("image/png")
       |> send_file(200, path)
     else
       case PngGenerator.generate(asciicast) do
         {:ok, png_path} ->
           conn
-          |> put_resp_header("content-type", MIME.from_path(png_path))
+          |> put_resp_content_type(MIME.from_path(png_path))
           |> put_resp_header("cache-control", "public, max-age=#{@png_max_age}")
           |> send_file(200, png_path)
-          |> halt
+          |> halt()
 
         {:error, :busy} ->
           conn
@@ -138,7 +163,7 @@ defmodule AsciinemaWeb.RecordingController do
       conn
       |> put_layout("simple.html")
       |> render("gif.html",
-        file_url: asciicast_file_url(conn, asciicast),
+        file_url: asciicast_file_url(asciicast),
         asciicast_id: asciicast.id
       )
     end
@@ -155,8 +180,8 @@ defmodule AsciinemaWeb.RecordingController do
     case Recordings.update_asciicast(asciicast, asciicast_params) do
       {:ok, asciicast} ->
         conn
-        |> put_flash(:info, "Asciicast updated.")
-        |> redirect(to: Routes.recording_path(conn, :show, asciicast))
+        |> put_flash(:info, "Recording updated.")
+        |> redirect(to: ~p"/a/#{asciicast}")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         render(conn, "edit.html", changeset: changeset)
@@ -169,13 +194,13 @@ defmodule AsciinemaWeb.RecordingController do
     case Recordings.delete_asciicast(asciicast) do
       {:ok, _asciicast} ->
         conn
-        |> put_flash(:info, "Asciicast deleted.")
+        |> put_flash(:info, "Recording deleted.")
         |> redirect(to: profile_path(conn, conn.assigns.current_user))
 
       {:error, _reason} ->
         conn
-        |> put_flash(:error, "Oops, couldn't remove this asciicast.")
-        |> redirect(to: Routes.recording_path(conn, :show, asciicast))
+        |> put_flash(:error, "Oops, couldn't remove this recording.")
+        |> redirect(to: ~p"/a/#{asciicast}")
     end
   end
 
@@ -188,9 +213,9 @@ defmodule AsciinemaWeb.RecordingController do
     if conn.assigns.asciicast.archived_at do
       conn
       |> put_status(410)
-      |> render("archived.html")
+      |> render("deleted.html", ttl: Asciinema.unclaimed_recording_ttl())
     else
-      render(conn, "iframe.html", playback_options: playback_options(params))
+      render(conn, "iframe.html", player_opts: player_opts(params))
     end
   end
 
@@ -206,10 +231,6 @@ defmodule AsciinemaWeb.RecordingController do
     nil
   end
 
-  defp file_store do
-    Application.get_env(:asciinema, :file_store)
-  end
-
   defp load_asciicast(conn, _) do
     id = String.trim(conn.params["id"])
 
@@ -217,10 +238,10 @@ defmodule AsciinemaWeb.RecordingController do
       {:ok, asciicast} ->
         public_id = to_string(asciicast.id)
 
-        case {asciicast.private, get_format(conn), id == public_id} do
-          {false, "html", false} ->
+        case {asciicast.visibility, action_name(conn), get_format(conn), id == public_id} do
+          {:public, :show, "html", false} ->
             conn
-            |> redirect(to: Routes.recording_path(conn, :show, asciicast))
+            |> redirect(to: ~p"/a/#{asciicast}")
             |> halt()
 
           _ ->
@@ -250,8 +271,6 @@ defmodule AsciinemaWeb.RecordingController do
   @actions [
     :edit,
     :delete,
-    :make_private,
-    :make_public,
     :make_featured,
     :make_not_featured
   ]
@@ -264,34 +283,36 @@ defmodule AsciinemaWeb.RecordingController do
 
   defp action_applicable?(action, asciicast) do
     case action do
-      :make_private -> !asciicast.private
-      :make_public -> asciicast.private
       :make_featured -> !asciicast.featured
       :make_not_featured -> asciicast.featured
       _ -> true
     end
   end
 
-  defp put_archival_info_flash(conn, asciicast) do
-    with true <- asciicast.archivable,
-         days when not is_nil(days) <- Recordings.gc_days(),
-         %{} = user <- asciicast.user,
-         true <- Accounts.temporary_user?(user),
-         true <- Timex.before?(asciicast.inserted_at, Timex.shift(Timex.now(), days: -days)) do
-      put_flash(
-        conn,
-        :error,
-        {:safe,
-         "This recording will be archived soon. More details: <a href=\"https://blog.asciinema.org/post/archival/\">blog.asciinema.org/post/archival/</a>"}
-      )
-    else
-      _ -> conn
-    end
-  end
-
-  defp playback_options(params) do
+  defp player_opts(params) do
     params
     |> Ext.Map.rename(%{"t" => "startAt", "i" => "idleTimeLimit"})
-    |> Recordings.PlaybackOpts.parse()
+    |> PlayerOpts.parse(:recording)
+  end
+
+  defp require_current_user_when_private(conn, _opts) do
+    case {action_name(conn), get_format(conn), conn.assigns.asciicast.visibility} do
+      {:show, "html", :private} ->
+        conn
+        |> fetch_session()
+        |> Authn.call([])
+        |> require_current_user([])
+
+      {:iframe, _format, :private} ->
+        conn
+
+      {_action, _format, :private} ->
+        conn
+        |> fetch_session()
+        |> Authn.call([])
+
+      _ ->
+        conn
+    end
   end
 end

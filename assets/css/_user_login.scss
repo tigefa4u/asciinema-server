@@ -3,6 +3,11 @@
     width: 250px;
     margin-right: 10px;
   }
+
+  .hpf-wrapper {
+    position: absolute;
+    left: -9999px;
+  }
 }
 
 .username-form {
@@ -14,9 +19,5 @@
 .c-login {
   h2 {
     margin-top: 30px;
-
-    span.glyphicon {
-      top: 4px;
-    }
   }
 }

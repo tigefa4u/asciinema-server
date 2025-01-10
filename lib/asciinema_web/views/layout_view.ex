@@ -1,12 +1,11 @@
 defmodule AsciinemaWeb.LayoutView do
   use AsciinemaWeb, :view
-  import AsciinemaWeb.UserView, only: [avatar_url: 1]
+  import AsciinemaWeb.UserHTML, only: [avatar_url: 1]
 
   def page_title(conn) do
-    case conn.assigns[:page_title] do
-      nil -> "asciinema - Record and share your terminal sessions, the simple way"
-      title -> title <> " - asciinema"
-    end
+    title = conn.assigns[:page_title] || "Record and share your terminal sessions, the simple way"
+
+    "#{title} - #{conn.host}"
   end
 
   def body_class(conn) do
@@ -23,9 +22,5 @@ defmodule AsciinemaWeb.LayoutView do
       |> Inflex.parameterize()
 
     "c-#{controller} a-#{action}"
-  end
-
-  def main_class(conn) do
-    conn.assigns[:main_class] || "container"
   end
 end

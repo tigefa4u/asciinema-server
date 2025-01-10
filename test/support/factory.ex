@@ -1,14 +1,34 @@
 defmodule Asciinema.Factory do
   use ExMachina.Ecto, repo: Asciinema.Repo
-  alias Asciinema.Accounts.User
-  alias Asciinema.Recordings.Asciicast
+  alias Asciinema.Accounts.{ApiToken, User}
   alias Asciinema.FileStore
+  alias Asciinema.Recordings.Asciicast
+  alias Asciinema.Streaming.LiveStream
 
   def user_factory do
     %User{
       username: sequence(:username, &"username-#{&1}"),
       email: sequence(:email, &"email-#{&1}@example.com"),
       auth_token: Crypto.random_token(20)
+    }
+  end
+
+  def temporary_user_factory do
+    %{user_factory() | email: nil}
+  end
+
+  def api_token_factory do
+    %ApiToken{
+      user: build(:user),
+      token: sequence(:token, &"token-#{&1}")
+    }
+  end
+
+  def revoked_api_token_factory do
+    %ApiToken{
+      user: build(:user),
+      token: sequence(:token, &"token-#{&1}"),
+      revoked_at: Timex.now()
     }
   end
 
@@ -55,6 +75,22 @@ defmodule Asciinema.Factory do
       secret_token: sequence(:secret_token, &secret_token/1),
       snapshot: [[["foo", %{}]], [["bar", %{}]]]
     }
+  end
+
+  def live_stream_factory do
+    %LiveStream{
+      user: build(:user),
+      public_token: sequence(:public_token, &public_token/1),
+      producer_token: sequence(:producer_token, &"token-#{&1}")
+    }
+  end
+
+  defp public_token(n) do
+    "public-#{n}"
+    |> String.codepoints()
+    |> Stream.cycle()
+    |> Stream.take(16)
+    |> Enum.join("")
   end
 
   defp secret_token(n) do

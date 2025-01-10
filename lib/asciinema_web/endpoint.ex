@@ -2,18 +2,9 @@ defmodule AsciinemaWeb.Endpoint do
   use Sentry.PlugCapture
   use Phoenix.Endpoint, otp_app: :asciinema
 
-  # The session will be stored in the cookie and signed,
-  # this means its contents can be read but not tampered with.
-  # Set :encryption_salt if you would also like to encrypt it.
-  @session_options [
-    store: :cookie,
-    key: "_asciinema_key",
-    signing_salt: "qJL+3s0T"
-  ]
+  @session_opts Application.compile_env!(:asciinema, :session_opts)
 
-  # socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
-
-  # socket "/socket", AsciinemaWeb.UserSocket, websocket: true
+  socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_opts]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -23,7 +14,7 @@ defmodule AsciinemaWeb.Endpoint do
     at: "/",
     from: :asciinema,
     gzip: true,
-    only: ~w(css fonts images js favicon.ico robots.txt)
+    only: AsciinemaWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
@@ -34,19 +25,23 @@ defmodule AsciinemaWeb.Endpoint do
     plug Phoenix.Ecto.CheckRepoStatus, otp_app: :asciinema
   end
 
+  plug Phoenix.LiveDashboard.RequestLogger,
+    param_key: "request_logger",
+    cookie_key: "request_logger"
+
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
   plug Plug.Parsers,
-    parsers: [:urlencoded, :multipart, :json],
+    parsers: [:urlencoded, AsciinemaWeb.Plug.Parsers.MULTIPART, :json],
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
 
+  plug RemoteIp
   plug Sentry.PlugContext
   plug Plug.MethodOverride
   plug Plug.Head
-  plug Plug.Session, @session_options
-  plug RemoteIp
+  plug Plug.Session, @session_opts
   plug AsciinemaWeb.PlugAttack
   plug AsciinemaWeb.Router
 end

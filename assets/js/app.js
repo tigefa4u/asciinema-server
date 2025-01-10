@@ -3,25 +3,10 @@ import css from '../css/app.scss';
 import $ from 'jquery';
 import "bootstrap";
 import "phoenix_html";
-import { create } from 'asciinema-player';
+import { createPlayer, cinemaHeight } from './player';
 
-window.createPlayer = create;
-
-function createPlayer(src, container, opts) {
-  if (opts.customTerminalFontFamily) {
-    opts.terminalFontFamily = `${opts.customTerminalFontFamily},Consolas,Menlo,'Bitstream Vera Sans Mono',monospace,'Powerline Symbols'`;
-
-    document.fonts.load(`1em ${opts.customTerminalFontFamily}`).then(() => {
-      console.log(`loaded font ${opts.customTerminalFontFamily}`);
-      create(src, container, opts);
-    }).catch(error => {
-      console.log(`failed to load font ${opts.customTerminalFontFamily}`, error);
-      create(src, container, opts);
-    });
-  } else {
-    create(src, container, opts);
-  }
-}
+window.createPlayer = createPlayer;
+window.cinemaHeight = cinemaHeight;
 
 $(function() {
   $('input[data-behavior=focus]:first').focus().select();
@@ -35,9 +20,31 @@ $(function() {
     $('a[href*=http]').attr('rel', 'noreferrer');
   }
 
-  const players = window.players || new Map();
+  document.querySelectorAll('#download-txt').forEach(link => {
+    link.addEventListener('click', () => {
+      link.href = window.location.origin + window.location.pathname + '.txt';
+    })
+  });
 
-  for (const [id, props] of players) {
-    createPlayer(props.src, document.getElementById(id), { ...props, logger: console });
-  };
+  document.querySelectorAll('#flash-notice button[data-behavior=close], #flash-alert button[data-behavior=close]').forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.target.closest('section').classList.add('hidden');
+    })
+  });
+
+  setTimeout(() => {
+    document.querySelectorAll('#flash-notice, #flash-alert').forEach(section => {
+      section.classList.add('hidden');
+    });
+  }, 5000);
 });
+
+import {Socket} from "phoenix";
+import {LiveSocket} from "phoenix_live_view";
+
+let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+let liveSocket = new LiveSocket("/live", Socket, { params: { _csrf_token: csrfToken } });
+
+// Connect if there are any LiveViews on the page
+liveSocket.connect();

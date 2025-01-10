@@ -17,19 +17,26 @@ defmodule AsciinemaWeb.ConnCase do
 
   using do
     quote do
+      # The default endpoint for testing
+      @endpoint AsciinemaWeb.Endpoint
+
+      use AsciinemaWeb, :verified_routes
+
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
 
-      import AsciinemaWeb.Router.Helpers.Extra
       import Asciinema.Fixtures
       alias AsciinemaWeb.Router.Helpers, as: Routes
 
-      # The default endpoint for testing
-      @endpoint AsciinemaWeb.Endpoint
+      defp flash(conn, key) do
+        Phoenix.Flash.get(conn.assigns.flash, key)
+      end
 
       def log_in(conn, user) do
-        assign(conn, :current_user, user)
+        conn
+        |> assign(:current_user, user)
+        |> assign(:default_stream, nil)
       end
     end
   end

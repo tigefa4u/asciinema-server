@@ -5,107 +5,6 @@ defmodule Asciinema.RecordingsTest do
   alias Asciinema.Recordings.Asciicast
 
   describe "create_asciicast/3" do
-    test "pre-v1 payload with uname" do
-      user = fixture(:user)
-
-      params = %{
-        "meta" => %{
-          "version" => 0,
-          "command" => "/bin/bash",
-          "duration" => 11.146430015564,
-          "shell" => "/bin/zsh",
-          "term" => %{"columns" => 96, "lines" => 26, "type" => "screen-256color"},
-          "title" => "bashing :)",
-          "uname" => "Linux 3.9.9-302.fc19.x86_64 #1 SMP Sat Jul 6 13:41:07 UTC 2013 x86_64"
-        },
-        "stdout" =>
-          fixture(:upload, %{path: "0.9.7/stdout", content_type: "application/octet-stream"}),
-        "stdout_timing" =>
-          fixture(:upload, %{path: "0.9.7/stdout.time", content_type: "application/octet-stream"})
-      }
-
-      {:ok, asciicast} = Recordings.create_asciicast(user, params, %{user_agent: "a/user/agent"})
-
-      assert %Asciicast{
-               version: 2,
-               command: "/bin/bash",
-               duration: 3.7037009999999997,
-               shell: "/bin/zsh",
-               terminal_type: "screen-256color",
-               cols: 96,
-               rows: 26,
-               title: "bashing :)",
-               uname: "Linux 3.9.9-302.fc19.x86_64 #1 SMP Sat Jul 6 13:41:07 UTC 2013 x86_64",
-               user_agent: nil
-             } = asciicast
-
-      assert asciicast.path =~ ~r|\d\d/\d\d/#{asciicast.id}\.cast$|
-    end
-
-    test "pre-v1 payload without uname" do
-      user = fixture(:user)
-
-      params = %{
-        "meta" => %{
-          "version" => 0,
-          "command" => "/bin/bash",
-          "duration" => 11.146430015564,
-          "shell" => "/bin/zsh",
-          "term" => %{"columns" => 96, "lines" => 26, "type" => "screen-256color"},
-          "title" => "bashing :)"
-        },
-        "stdout" =>
-          fixture(:upload, %{path: "0.9.8/stdout", content_type: "application/octet-stream"}),
-        "stdout_timing" =>
-          fixture(:upload, %{path: "0.9.8/stdout.time", content_type: "application/octet-stream"})
-      }
-
-      {:ok, asciicast} = Recordings.create_asciicast(user, params, %{user_agent: "a/user/agent"})
-
-      assert %Asciicast{
-               version: 2,
-               command: "/bin/bash",
-               duration: 3.7037009999999997,
-               shell: "/bin/zsh",
-               terminal_type: "screen-256color",
-               cols: 96,
-               rows: 26,
-               title: "bashing :)",
-               uname: nil,
-               user_agent: "a/user/agent"
-             } = asciicast
-
-      assert asciicast.path =~ ~r|\d\d/\d\d/#{asciicast.id}\.cast$|
-    end
-
-    test "pre-v1 payload, utf-8 sequence split between frames" do
-      user = fixture(:user)
-
-      params = %{
-        "meta" => %{
-          "version" => 0,
-          "command" => "/bin/bash",
-          "duration" => 11.146430015564,
-          "shell" => "/bin/zsh",
-          "term" => %{"columns" => 96, "lines" => 26, "type" => "screen-256color"},
-          "title" => "bashing :)"
-        },
-        "stdout" =>
-          fixture(:upload, %{path: "0.9.8/stdout-split", content_type: "application/octet-stream"}),
-        "stdout_timing" =>
-          fixture(:upload, %{
-            path: "0.9.8/stdout-split.time",
-            content_type: "application/octet-stream"
-          })
-      }
-
-      {:ok, asciicast} = Recordings.create_asciicast(user, params, %{user_agent: "a/user/agent"})
-      stream = Recordings.stdout_stream(asciicast)
-
-      assert :ok == Stream.run(stream)
-      assert [{1.234567, "xxżó"}, {1.358023, "łć"}, {3.358023, "xx"}] == Enum.take(stream, 3)
-    end
-
     test "json file, v1 format" do
       user = fixture(:user)
       upload = fixture(:upload, %{path: "1/asciicast.json"})
@@ -179,7 +78,7 @@ defmodule Asciinema.RecordingsTest do
                version: 2,
                cols: 96,
                rows: 26,
-               duration: 6.234567,
+               duration: 7.34567,
                command: "/bin/bash -l",
                shell: "/bin/zsh",
                terminal_type: "screen-256color",
@@ -215,74 +114,16 @@ defmodule Asciinema.RecordingsTest do
     end
   end
 
-  describe "stdout_stream/1" do
-    test "with asciicast v1 file" do
-      stream = Recordings.stdout_stream("test/fixtures/1/asciicast.json")
-      assert :ok == Stream.run(stream)
-      assert [{1.234567, "foo bar"}, {6.913554, "baz qux"}] == Enum.take(stream, 2)
-    end
-
-    test "with asciicast v2 file" do
-      stream = Recordings.stdout_stream("test/fixtures/2/minimal.cast")
-      assert :ok == Stream.run(stream)
-      assert [{1.234567, "foo bar"}, {5.678987, "baz qux"}] == Enum.take(stream, 2)
-    end
-
-    test "with asciicast v2 file, with idle_time_limit" do
-      stream = Recordings.stdout_stream("test/fixtures/2/full.cast")
-      assert :ok == Stream.run(stream)
-
-      assert [{1.234567, "foo bar"}, {3.734567, "baz qux"}, {6.234567, "żółć jaźń"}] ==
-               Enum.take(stream, 3)
-    end
-
-    test "with asciicast v2 file, with blank lines" do
-      stream = Recordings.stdout_stream("test/fixtures/2/with-blank-lines.cast")
-      assert :ok == Stream.run(stream)
-
-      assert [{1.234567, "foo bar"}, {5.678987, "baz qux"}, {8.456789, "żółć jaźń"}] ==
-               Enum.to_list(stream)
-    end
-  end
-
-  describe "stdout_stream/2" do
-    test "with gzipped files" do
-      stream =
-        Recordings.stdout_stream(
-          {"test/fixtures/0.9.9/stdout.time", "test/fixtures/0.9.9/stdout"}
-        )
-
-      assert :ok == Stream.run(stream)
-      assert [{1.234567, "foobar"}, {1.358023, "baz"}] == Enum.take(stream, 2)
-    end
-
-    test "with bzipped files" do
-      stream =
-        Recordings.stdout_stream(
-          {"test/fixtures/0.9.8/stdout.time", "test/fixtures/0.9.8/stdout"}
-        )
-
-      assert :ok == Stream.run(stream)
-      assert [{1.234567, "foobar"}, {1.358023, "baz"}] == Enum.take(stream, 2)
-    end
-
-    test "with bzipped files (utf-8 sequence split between frames)" do
-      stream =
-        Recordings.stdout_stream(
-          {"test/fixtures/0.9.8/stdout-split.time", "test/fixtures/0.9.8/stdout-split"}
-        )
-
-      assert :ok == Stream.run(stream)
-      assert [{1.234567, "xxżó"}, {1.358023, "łć"}, {3.358023, "xx"}] == Enum.take(stream, 3)
-    end
-  end
-
   describe "generate_snapshot/2" do
     @tag :vt
     test "returns list of screen lines" do
-      stdout_stream = [{1.0, "a"}, {2.4, "b"}, {2.6, "c"}]
-      snapshot = Recordings.generate_snapshot(stdout_stream, 4, 2, 2.5)
-      assert snapshot == [[["ab", %{}], [" ", %{"inverse" => true}], [" ", %{}]], [["    ", %{}]]]
+      output = [{1.0, "a"}, {2.4, "b"}, {2.6, "c"}]
+      snapshot = Recordings.generate_snapshot(output, 4, 2, 2.5)
+
+      assert snapshot == [
+               [["ab", %{}, 1], [" ", %{"inverse" => true}, 1], [" ", %{}, 1]],
+               [["    ", %{}, 1]]
+             ]
     end
   end
 
@@ -300,7 +141,7 @@ defmodule Asciinema.RecordingsTest do
 
       stream_v0 =
         asciicast
-        |> Recordings.stdout_stream()
+        |> Recordings.EventStream.new()
         |> Enum.to_list()
 
       asciicast = Recordings.upgrade(asciicast)
@@ -309,24 +150,10 @@ defmodule Asciinema.RecordingsTest do
 
       stream_v2 =
         asciicast
-        |> Recordings.stdout_stream()
+        |> Recordings.EventStream.new()
         |> Enum.to_list()
 
       assert stream_v0 == stream_v2
-    end
-  end
-
-  describe "parse_markers/1" do
-    test "returns markers for valid syntax" do
-      result = Asciicast.parse_markers("1.0 - Intro\n2.5\n5.0 - Tips & Tricks\n")
-
-      assert result == {:ok, [{1.0, "Intro"}, {2.5, ""}, {5.0, "Tips & Tricks"}]}
-    end
-
-    test "returns error for invalid syntax" do
-      result = Asciicast.parse_markers("1.0 - Intro\nFoobar\n")
-
-      assert result == {:error, 1}
     end
   end
 end

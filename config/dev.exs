@@ -38,18 +38,30 @@ config :asciinema, AsciinemaWeb.Endpoint,
     ]
   ]
 
+config :asciinema, AsciinemaWeb.Admin.Endpoint,
+  http: [ip: {127, 0, 0, 1}, port: 4002],
+  check_origin: false,
+  code_reloader: true,
+  debug_errors: true,
+  secret_key_base: secret_key_base
+
 config :asciinema, Asciinema.Accounts, secret: secret_key_base
 
 # Watch static and templates for browser reloading.
 config :asciinema, AsciinemaWeb.Endpoint,
   live_reload: [
+    interval: 1000,
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
       ~r"lib/asciinema_web/views/.*(ex)$",
-      ~r"lib/asciinema_web/templates/.*(eex|md)$"
+      ~r"lib/asciinema_web/templates/.*(eex|md)$",
+      ~r"lib/asciinema_web/(controllers|live|components)/.*(ex|heex)$"
     ]
   ]
+
+# Enable dev routes for dashboard and mailbox
+config :asciinema, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"
@@ -61,7 +73,7 @@ config :phoenix, :stacktrace_depth, 20
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
 
-config :asciinema, Asciinema.Emails.Mailer, adapter: Bamboo.LocalAdapter
+config :asciinema, Asciinema.Telemetry, enabled: false
 
 # Import custom config.
 for config <- "custom*.exs" |> Path.expand(__DIR__) |> Path.wildcard() do
