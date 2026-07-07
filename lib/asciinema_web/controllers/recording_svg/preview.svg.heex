@@ -39,13 +39,11 @@
       style="image-rendering: pixelated; image-rendering: crisp-edges;"
     />
 
-    <g style="shape-rendering: optimizeSpeed">
-      <%= for %{y: y, segments: segments} <- @coords.vector_symbols do %>
-        <%= for %{x: x, text: char, attrs: attrs} <- segments do %>
-          <.vector_symbol char={char} x={x} y={y} attrs={attrs} theme={@theme} />
-        <% end %>
+    <%= for %{y: y, segments: segments} <- @coords.vector_symbols do %>
+      <%= for %{x: x, text: char, attrs: attrs} <- segments do %>
+        <.vector_symbol char={char} x={x} y={y} attrs={attrs} theme={@theme} />
       <% end %>
-    </g>
+    <% end %>
 
     <text xml:space="preserve" class="term-text" style={"fill: " <> @theme.fg}>
       <tspan :for={%{y: y, segments: segments} <- @coords.text} y={y(y)}>
