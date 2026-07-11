@@ -62,7 +62,7 @@ defmodule Asciinema.MixProject do
       {:oban, "~> 2.20"},
       {:oban_web, "~> 2.11"},
       {:ok, "~> 2.3"},
-      {:phoenix, "~> 1.7.11"},
+      {:phoenix, "~> 1.7.24"},
       {:phoenix_ecto, "~> 4.5.1"},
       {:phoenix_view, "~> 2.0.3"},
       {:phoenix_html, "~> 3.3.3"},
