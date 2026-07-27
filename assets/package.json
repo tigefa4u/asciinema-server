@@ -9,6 +9,6 @@
     "asciinema-player": "3.17.0",
     "phoenix": "1.7.24",
     "phoenix_html": "3.3.4",
-    "phoenix_live_view": "1.0.18"
+    "phoenix_live_view": "1.2.7"
   }
 }
