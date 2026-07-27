@@ -11,17 +11,22 @@ defmodule Asciinema.MixProject do
       aliases: aliases(),
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.html": :test
-      ],
       releases: [
         asciinema: [
           config_providers: [
             {Config.Reader, {:system, "RELEASE_ROOT", "/etc/custom.exs"}}
           ]
         ]
+      ]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test
       ]
     ]
   end
