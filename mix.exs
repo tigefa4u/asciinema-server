@@ -10,6 +10,12 @@ defmodule Asciinema.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test
+      ],
       releases: [
         asciinema: [
           config_providers: [
@@ -49,6 +55,7 @@ defmodule Asciinema.MixProject do
       {:ex_aws, "~> 2.2"},
       {:ex_aws_s3, "~> 2.1"},
       {:ex_machina, "~> 2.4", only: :test},
+      {:excoveralls, "~> 0.18", only: :test},
       {:gen_smtp, "~> 1.3"},
       {:gettext, "~> 0.20"},
       {:hackney, "~> 1.18"},
