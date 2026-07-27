@@ -1,5 +1,5 @@
 defmodule Asciinema do
-  alias Asciinema.{Accounts, Emails, Recordings, Repo, Streaming}
+  alias Asciinema.{Accounts, AppEnv, Emails, Recordings, Repo, Streaming}
 
   def initiate_login(identifier, url_provider, opts \\ []) do
     case Accounts.initiate_login(identifier, opts) do
@@ -115,7 +115,7 @@ defmodule Asciinema do
   end
 
   def unclaimed_recording_ttl(mode) do
-    Keyword.get(Application.get_env(:asciinema, :unclaimed_recording_ttl, []), mode)
+    Keyword.get(AppEnv.get(:unclaimed_recording_ttl, []), mode)
   end
 
   def hide_unclaimed_recordings(days) do

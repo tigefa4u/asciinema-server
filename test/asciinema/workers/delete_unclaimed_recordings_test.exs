@@ -4,12 +4,12 @@ defmodule Asciinema.Workers.DeleteUnclaimedRecordingsTest do
 
   import Asciinema.Factory
 
-  alias Asciinema.Recordings
+  alias Asciinema.{AppEnv, Recordings}
   alias Asciinema.Workers.DeleteUnclaimedRecordings
 
   describe "perform/1" do
     test "hides and deletes unclaimed recordings per configured TTLs" do
-      put_ttl_config(hide: 7, delete: 30)
+      AppEnv.put(:unclaimed_recording_ttl, hide: 7, delete: 30)
 
       tmp_user = insert(:temporary_user, email: nil)
       fresh = insert(:asciicast, user: tmp_user, inserted_at: days_ago(2))
@@ -33,19 +33,6 @@ defmodule Asciinema.Workers.DeleteUnclaimedRecordingsTest do
 
       assert Recordings.get_asciicast(ancient.id).archived_at == nil
     end
-  end
-
-  defp put_ttl_config(ttls) do
-    original = Application.get_env(:asciinema, :unclaimed_recording_ttl)
-    Application.put_env(:asciinema, :unclaimed_recording_ttl, ttls)
-
-    on_exit(fn ->
-      if original do
-        Application.put_env(:asciinema, :unclaimed_recording_ttl, original)
-      else
-        Application.delete_env(:asciinema, :unclaimed_recording_ttl)
-      end
-    end)
   end
 
   defp days_ago(days), do: DateTime.add(DateTime.utc_now(), -days * 86_400)
