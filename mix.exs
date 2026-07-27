@@ -63,7 +63,7 @@ defmodule Asciinema.MixProject do
       {:ex_machina, "~> 2.4", only: :test},
       {:excoveralls, "~> 0.18", only: :test},
       {:gen_smtp, "~> 1.3"},
-      {:gettext, "~> 0.20"},
+      {:gettext, "~> 1.0"},
       {:hackney, "~> 1.18"},
       {:horde, "~> 0.10.0"},
       {:html_sanitize_ex, "~> 1.4"},
