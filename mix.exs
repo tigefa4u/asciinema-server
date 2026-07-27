@@ -91,7 +91,7 @@ defmodule Asciinema.MixProject do
       {:remote_ip, "~> 1.1"},
       {:rustler, "~> 0.37.1"},
       {:scrivener_ecto, "~> 3.1"},
-      {:sentry, "~> 12.0"},
+      {:sentry, "~> 13.3"},
       {:stream_data, "~> 1.0", only: :test},
       {:swoosh, "~> 1.16"},
       {:tailwind, "~> 0.3.1", runtime: Mix.env() == :dev},
