@@ -87,7 +87,7 @@ defmodule Asciinema.MixProject do
       {:plug_attack, "~> 0.4.3"},
       {:plug_cowboy, "~> 2.7"},
       {:postgrex, ">= 0.0.0"},
-      {:process_tree, "~> 0.2.1", only: :test},
+      {:process_tree, "~> 0.3", only: :test},
       {:remote_ip, "~> 1.1"},
       {:rustler, "~> 0.37.1"},
       {:scrivener_ecto, "~> 3.1"},
