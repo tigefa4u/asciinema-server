@@ -56,7 +56,7 @@
           mixFodDeps = beamPackages.fetchMixDeps {
             pname = "${pname}-mix-deps";
             inherit src version;
-            hash = "sha256-gIv/jD+XiNETANCIKIJC9LiXbqB4AZeB7/7+CR55j+8=";
+            hash = "sha256-6wMTtxfNw8UbfNW3femZSwUH/Syq2viVfcNCmgDMOFU=";
           };
 
           preConfigure = ''
