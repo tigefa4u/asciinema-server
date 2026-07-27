@@ -113,7 +113,6 @@ defmodule AsciinemaWeb do
       import AsciinemaWeb.Icons
 
       import AsciinemaWeb.ErrorHelpers
-      alias AsciinemaWeb.Router.Helpers, as: Routes
 
       import AsciinemaWeb.UrlHelpers
       import AsciinemaWeb.ApplicationView

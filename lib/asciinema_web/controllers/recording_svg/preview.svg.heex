@@ -21,7 +21,7 @@
     <%= if @standalone do %>
     @font-face {
       font-family: "Symbols Nerd Font";
-      src: url("<%= Routes.static_url(AsciinemaWeb.Endpoint, "/fonts/SymbolsNerdFont-Regular.woff2") %>") format("woff2");
+      src: url("<%= url(~p"/fonts/SymbolsNerdFont-Regular.woff2") %>") format("woff2");
     }
     <% end %>
   </style>

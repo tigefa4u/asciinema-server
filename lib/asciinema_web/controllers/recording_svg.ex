@@ -4,8 +4,9 @@ defmodule AsciinemaWeb.RecordingSVG do
   alias Asciinema.{Colors, Media, Themes}
   alias Asciinema.SvgRaster
   alias Asciinema.Recordings.Snapshot
-  alias AsciinemaWeb.Router.Helpers, as: Routes
   alias Phoenix.HTML
+
+  use AsciinemaWeb, :verified_routes
 
   embed_templates "recording_svg/*"
 

@@ -6,7 +6,8 @@ defmodule AsciinemaWeb.Authentication do
   alias Asciinema.Accounts
   alias Asciinema.Accounts.User
   alias AsciinemaWeb.Endpoint
-  alias AsciinemaWeb.Router.Helpers, as: Routes
+
+  use AsciinemaWeb, :verified_routes
 
   @user_key "user_id"
   @token_cookie_name "auth_token"
@@ -49,7 +50,7 @@ defmodule AsciinemaWeb.Authentication do
       conn
       |> save_return_path()
       |> put_flash(:info, msg)
-      |> redirect(to: Routes.login_path(conn, :new))
+      |> redirect(to: ~p"/login/new")
       |> halt()
     else
       conn
