@@ -57,7 +57,7 @@ defmodule Asciinema.Asciicast.V2 do
         command: header["command"],
         duration: stats.duration,
         event_count: stats.event_count,
-        recorded_at: header["timestamp"] && Timex.from_unix(header["timestamp"]),
+        recorded_at: from_unix(header["timestamp"]),
         title: header["title"],
         env: header["env"] || %{},
         idle_time_limit: header["idle_time_limit"],
@@ -196,4 +196,13 @@ defmodule Asciinema.Asciicast.V2 do
   end
 
   def close(%Writer{file: file}), do: File.close(file)
+
+  defp from_unix(ts) when is_integer(ts) do
+    case DateTime.from_unix(ts) do
+      {:ok, time} -> time
+      {:error, _} -> nil
+    end
+  end
+
+  defp from_unix(_), do: nil
 end

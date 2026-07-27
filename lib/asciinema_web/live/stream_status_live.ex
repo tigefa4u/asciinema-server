@@ -124,7 +124,7 @@ defmodule AsciinemaWeb.StreamStatusLive do
   def handle_info(%StreamServer.Update{event: e} = update, socket)
       when e in [:info, :reset] do
     %{time: time} = update.data
-    last_started_at = Timex.shift(Timex.now(), microseconds: -time)
+    last_started_at = DateTime.add(DateTime.utc_now(), -time, :microsecond)
     socket = assign(socket, live: true, last_started_at: last_started_at, confirmed: true)
 
     {:noreply, socket}
@@ -164,12 +164,17 @@ defmodule AsciinemaWeb.StreamStatusLive do
     if duration < 60 do
       nil
     else
-      (div(duration, 60) * 60)
-      |> Timex.Duration.from_seconds()
-      |> Timex.format_duration(:humanized)
-      |> String.split(", ")
+      [
+        {div(duration, 86_400), "day"},
+        {div(rem(duration, 86_400), 3_600), "hour"},
+        {div(rem(duration, 3_600), 60), "minute"}
+      ]
+      |> Enum.filter(fn {n, _unit} -> n > 0 end)
       |> Enum.take(2)
-      |> Enum.join(", ")
+      |> Enum.map_join(", ", fn
+        {1, unit} -> "1 #{unit}"
+        {n, unit} -> "#{n} #{unit}s"
+      end)
     end
   end
 end

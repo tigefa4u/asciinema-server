@@ -119,12 +119,12 @@ defmodule Asciinema do
   end
 
   def hide_unclaimed_recordings(days) do
-    t = Timex.shift(Timex.now(), days: -days)
+    t = DateTime.add(DateTime.utc_now(), -days * 86_400)
     Recordings.hide_unclaimed_asciicasts(Accounts.unregistered_users(), t)
   end
 
   def delete_unclaimed_recordings(days) do
-    t = Timex.shift(Timex.now(), days: -days)
+    t = DateTime.add(DateTime.utc_now(), -days * 86_400)
     Recordings.delete_unclaimed_asciicasts(Accounts.unregistered_users(), t)
   end
 end

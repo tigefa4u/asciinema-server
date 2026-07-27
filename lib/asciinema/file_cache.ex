@@ -294,9 +294,9 @@ defmodule Asciinema.FileCache do
   end
 
   defp schedule_cache_cleanup(:midnight) do
-    now = Timex.now()
-    next_midnight = now |> Timex.shift(days: 1) |> Timex.beginning_of_day()
-    time_till_midnight = max(Timex.diff(next_midnight, now, :milliseconds), 0)
+    now = DateTime.utc_now()
+    next_midnight = DateTime.new!(Date.add(DateTime.to_date(now), 1), ~T[00:00:00])
+    time_till_midnight = max(DateTime.diff(next_midnight, now, :millisecond), 0)
     Process.send_after(self(), :cleanup_cache, time_till_midnight)
   end
 

@@ -97,7 +97,7 @@ defmodule Asciinema.MixProject do
       {:tailwind, "~> 0.3.1", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.1"},
       {:telemetry_poller, "~> 1.0"},
-      {:timex, "~> 3.7"},
+      {:tzdata, "~> 1.1"},
       {:uuid, "~> 1.1"}
     ]
   end

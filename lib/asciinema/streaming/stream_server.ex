@@ -280,7 +280,7 @@ defmodule Asciinema.Streaming.StreamServer do
   end
 
   defp update_last_stream_time(state, time) do
-    %{state | last_stream_time: time, last_event_time: Timex.now()}
+    %{state | last_stream_time: time, last_event_time: DateTime.utc_now()}
   end
 
   defp update_schema(state, fields) do
@@ -402,7 +402,7 @@ defmodule Asciinema.Streaming.StreamServer do
          theme
        ) do
     path = Briefly.create!()
-    timestamp = Timex.to_unix(Timex.now())
+    timestamp = DateTime.to_unix(DateTime.utc_now())
 
     {:ok, writer} =
       V3.create(path, {cols, rows},
@@ -446,13 +446,13 @@ defmodule Asciinema.Streaming.StreamServer do
   defp current_stream_time(nil, nil), do: nil
 
   defp current_stream_time(last_stream_time, last_event_time) do
-    last_stream_time + Timex.diff(Timex.now(), last_event_time, :microseconds)
+    last_stream_time + DateTime.diff(DateTime.utc_now(), last_event_time, :microsecond)
   end
 
   defp schema_changes_for_reset(time, {cols, rows}, user_agent, theme) do
     fields = [
       [
-        last_started_at: Timex.shift(Timex.now(), microseconds: -time),
+        last_started_at: DateTime.add(DateTime.utc_now(), -time, :microsecond),
         term_cols: cols,
         term_rows: rows,
         user_agent: user_agent
