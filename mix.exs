@@ -90,7 +90,7 @@ defmodule Asciinema.MixProject do
       {:process_tree, "~> 0.2.1", only: :test},
       {:remote_ip, "~> 1.1"},
       {:rustler, "~> 0.37.1"},
-      {:scrivener_ecto, "~> 2.4"},
+      {:scrivener_ecto, "~> 3.1"},
       {:sentry, "~> 12.0"},
       {:stream_data, "~> 1.0", only: :test},
       {:swoosh, "~> 1.16"},
