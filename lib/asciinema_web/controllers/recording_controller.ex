@@ -206,7 +206,7 @@ defmodule AsciinemaWeb.RecordingController do
       send_resp(conn, 410, "")
     else
       conn
-      |> put_layout("simple.html")
+      |> put_layout(html: {AsciinemaWeb.LayoutView, :simple})
       |> render("gif.html",
         file_url: asciicast_file_url(asciicast),
         asciicast_id: asciicast.id
@@ -476,8 +476,9 @@ defmodule AsciinemaWeb.RecordingController do
   def iframe(conn, params) do
     conn =
       conn
-      |> put_layout("iframe.html")
+      |> put_layout(html: {AsciinemaWeb.LayoutView, :iframe})
       |> delete_resp_header("x-frame-options")
+      |> put_resp_header("content-security-policy", "base-uri 'self'")
 
     if conn.assigns.asciicast.archived_at do
       conn

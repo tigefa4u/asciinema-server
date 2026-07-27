@@ -22,7 +22,8 @@ defmodule AsciinemaWeb do
   def controller do
     quote do
       use Phoenix.Controller,
-        formats: [:html, :json, :svg, :xml, :text]
+        formats: [:html, :json, :svg, :xml, :text],
+        layouts: [html: {AsciinemaWeb.LayoutView, :app}]
 
       import Plug.Conn
       import AsciinemaWeb.UrlHelpers

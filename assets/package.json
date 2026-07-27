@@ -7,7 +7,7 @@
   ],
   "dependencies": {
     "asciinema-player": "3.17.0",
-    "phoenix": "1.7.24",
+    "phoenix": "1.8.9",
     "phoenix_html": "4.3.0",
     "phoenix_live_view": "1.2.7"
   }
