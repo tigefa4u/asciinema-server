@@ -65,7 +65,7 @@ defmodule Asciinema.MixProject do
       {:gen_smtp, "~> 1.3"},
       {:gettext, "~> 0.20"},
       {:hackney, "~> 1.18"},
-      {:horde, "~> 0.8.7"},
+      {:horde, "~> 0.10.0"},
       {:html_sanitize_ex, "~> 1.4"},
       {:identicon_svg, "~> 1.0"},
       {:inflex, "~> 2.0"},
