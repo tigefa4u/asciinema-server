@@ -60,6 +60,19 @@
             cp -r node_modules $out/
           '';
         };
+        # Tools the app shells out to at runtime: rsvg-convert (librsvg) and
+        # pngquant for SVG->PNG rendering, fd for file cache cleanup, plus
+        # `which` and `grep`, used by priv/svg2png.sh to probe for
+        # timeout/pngquant. Consumed by the package build, the NixOS module,
+        # and the OCI image.
+        runtimeTools = with pkgs; [
+          librsvg
+          pngquant
+          fd
+          which
+          gnugrep
+        ];
+
         server = beamPackages.mixRelease rec {
           inherit pname;
           version = "1.0.0";
@@ -91,11 +104,11 @@
             mix assets.deploy
           '';
 
-          buildInputs = with pkgs; [
-            librsvg
-            pngquant
-            fd
-          ];
+          buildInputs = runtimeTools;
+
+          # buildInputs resolves to dev outputs in the build env, so expose the
+          # plain runtime outputs separately for the module and image.
+          passthru.runtimeTools = runtimeTools;
         };
 
         fontsConf = pkgs.makeFontsConf {
@@ -134,18 +147,18 @@
           tag = "latest";
           maxLayers = 100;
 
-          contents = with pkgs; [
-            server
-            imageEntrypoint
-            bashInteractive
-            coreutils
-            fd
-            librsvg
-            pngquant
-            tini
-            cacert
-            dejavu_fonts
-          ];
+          contents =
+            with pkgs;
+            [
+              server
+              imageEntrypoint
+              bashInteractive
+              coreutils
+              tini
+              cacert
+              dejavu_fonts
+            ]
+            ++ runtimeTools;
 
           fakeRootCommands = ''
             mkdir -p tmp opt var/lib/asciinema var/cache/asciinema
@@ -199,7 +212,7 @@
               imagemagick
               playwright-driver.browsers
             ]
-            ++ server.buildInputs
+            ++ runtimeTools
             ++ lib.optionals stdenv.isLinux [ inotify-tools ];
 
           shellHook = ''
@@ -228,7 +241,7 @@
               rustPackages.clippy
               imagemagick
             ]
-            ++ server.buildInputs;
+            ++ runtimeTools;
 
           shellHook = mixShellHook;
         };
@@ -415,16 +428,9 @@
               ]
               ++ lib.optional cfg.database.createLocally "postgresql-setup.service";
 
-              # Runtime tools the app shells out to by bare name: rsvg-convert
-              # (librsvg) and pngquant for SVG->PNG rendering, fd for file cache
-              # cleanup, and `which`, which svg2png.sh uses to probe for
-              # timeout/pngquant.
-              path = [
-                pkgs.librsvg
-                pkgs.pngquant
-                pkgs.fd
-                pkgs.which
-              ];
+              # Runtime tools the app shells out to by bare name; the package
+              # exposes them via passthru (see the server derivation).
+              path = pkg.runtimeTools;
 
               script = ''
                 [ -n "$SECRET_KEY_BASE" ] || export SECRET_KEY_BASE="$(cat "$HOME/secret_key_base")"
