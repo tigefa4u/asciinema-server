@@ -18,7 +18,10 @@
         pname = "asciinema-server";
         pkgs = nixpkgs.legacyPackages.${system};
 
-        beamPackages = pkgs.beam.packages.erlang_28.extend (
+        # beam_minimal = no wx GUI apps and no systemd linkage in epmd; the
+        # latter would otherwise pull the full systemd closure (~120 MB) into
+        # every release via a single libsystemd reference.
+        beamPackages = pkgs.beam_minimal.packages.erlang_28.extend (
           _: prev: {
             elixir = prev.elixir_1_19;
           }
