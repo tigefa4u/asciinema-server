@@ -109,6 +109,22 @@
           # buildInputs resolves to dev outputs in the build env, so expose the
           # plain runtime outputs separately for the module and image.
           passthru.runtimeTools = runtimeTools;
+
+          nativeBuildInputs = [ pkgs.removeReferencesTo ];
+
+          # preConfigure bakes esbuild/tailwind store paths into config, which
+          # ends up in sys.config. They are build-time only (assets.deploy);
+          # scrub the references so they don't bloat the runtime closure, and
+          # fail the build if they ever reappear.
+          postInstall = ''
+            find $out/releases -name sys.config \
+              -exec remove-references-to -t ${pkgs.esbuild} -t ${pkgs.tailwindcss_3} {} +
+          '';
+
+          disallowedReferences = [
+            pkgs.esbuild
+            pkgs.tailwindcss_3
+          ];
         };
 
         fontsConf = pkgs.makeFontsConf {
