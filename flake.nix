@@ -34,6 +34,20 @@
           };
         };
 
+        mixShellHook = ''
+          # this allows mix to work on the local directory
+          mkdir -p .nix-mix .nix-hex
+          export MIX_HOME=$PWD/.nix-mix
+          export HEX_HOME=$PWD/.nix-hex
+
+          # make hex and rebar3 from Nixpkgs available so mix doesn't
+          # download them
+          # `mix local.hex` will install hex into MIX_HOME and should take precedence
+          export MIX_PATH="${beamPackages.hex}/lib/erlang/lib/hex/ebin"
+          export MIX_REBAR3="${beamPackages.rebar3}/bin/rebar3"
+          export PATH=$MIX_HOME/bin:$HEX_HOME/bin:$PATH
+        '';
+
         npmDeps = pkgs.buildNpmPackage {
           pname = "${pname}-node-modules";
           version = "1.0.0";
@@ -106,15 +120,7 @@
             ++ lib.optionals stdenv.isLinux [ inotify-tools ];
 
           shellHook = ''
-            # this allows mix to work on the local directory
-            mkdir -p .nix-mix .nix-hex
-            export MIX_HOME=$PWD/.nix-mix
-            export HEX_HOME=$PWD/.nix-hex
-
-            # make hex from Nixpkgs available
-            # `mix local.hex` will install hex into MIX_HOME and should take precedence
-            export MIX_PATH="${beamPackages.hex}/lib/erlang/lib/hex/ebin"
-            export PATH=$MIX_HOME/bin:$HEX_HOME/bin:$PATH
+            ${mixShellHook}
 
             # keep shell history in iex
             export ERL_AFLAGS="-kernel shell_history enabled"
@@ -124,6 +130,24 @@
 
           # Playwright browsers pinned via the flake — no manual `playwright install`.
           PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
+        };
+
+        # Lean shell for CI: toolchains and test-time tools only, no dev extras
+        # (no Playwright browsers, editor tooling, etc).
+        devShells.ci = pkgs.mkShell {
+          packages =
+            with pkgs;
+            [
+              beamPackages.elixir
+              nodejs_24
+              cargo
+              rustc
+              rustPackages.clippy
+              imagemagick
+            ]
+            ++ self.packages.${system}.default.buildInputs;
+
+          shellHook = mixShellHook;
         };
 
         formatter = pkgs.nixfmt-tree;
