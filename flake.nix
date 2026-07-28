@@ -60,9 +60,7 @@
             cp -r node_modules $out/
           '';
         };
-      in
-      {
-        packages.default = beamPackages.mixRelease rec {
+        server = beamPackages.mixRelease rec {
           inherit pname;
           version = "1.0.0";
           src = ./.;
@@ -100,6 +98,91 @@
           ];
         };
 
+        fontsConf = pkgs.makeFontsConf {
+          fontDirectories = [ pkgs.dejavu_fonts ];
+        };
+
+        # Exports RELEASE_COOKIE (generated once, persisted in the data dir)
+        # and RELEASE_TMP before handing off to the release scripts. Needed
+        # because the release lives in the read-only Nix store, so the stock
+        # scripts cannot write a generated cookie or runtime sys.config there.
+        imageEntrypoint = pkgs.writeShellScriptBin "image-entrypoint" ''
+          export RELEASE_TMP=/tmp
+
+          if [ -z "$RELEASE_COOKIE" ]; then
+            data_dir="''${DATA_DIR:-/var/lib/asciinema}"
+            cookie_file="$data_dir/release_cookie"
+
+            if [ ! -f "$cookie_file" ]; then
+              (umask 077; od -An -tx1 -N32 /dev/urandom | tr -d ' \n' > "$cookie_file")
+            fi
+
+            RELEASE_COOKIE="$(cat "$cookie_file")"
+            export RELEASE_COOKIE
+          fi
+
+          exec "$@"
+        '';
+      in
+      {
+        packages.default = server;
+
+        # OCI image, a drop-in replacement for the Dockerfile-built one.
+        # Build and load: nix build .#image && ./result | podman load
+        packages.image = pkgs.dockerTools.streamLayeredImage {
+          name = "asciinema-server";
+          tag = "latest";
+          maxLayers = 100;
+
+          contents = with pkgs; [
+            server
+            imageEntrypoint
+            bashInteractive
+            coreutils
+            fd
+            librsvg
+            pngquant
+            tini
+            cacert
+            dejavu_fonts
+          ];
+
+          fakeRootCommands = ''
+            mkdir -p tmp opt var/lib/asciinema var/cache/asciinema
+            chmod 1777 tmp
+            # /opt/app mirrors the legacy image layout, keeping documented
+            # bind mounts like /opt/app/etc/custom.exs working
+            ln -s ${server} opt/app
+            cp ${./.iex.exs} .iex.exs
+            # support running as an arbitrary uid (gid 0), like the legacy image
+            chgrp -R 0 var/lib/asciinema var/cache/asciinema
+            chmod -R g=u var/lib/asciinema var/cache/asciinema
+          '';
+
+          config = {
+            Entrypoint = [
+              "${pkgs.tini}/bin/tini"
+              "--"
+              "${imageEntrypoint}/bin/image-entrypoint"
+            ];
+            Cmd = [ "/opt/app/bin/server" ];
+            WorkingDir = "/";
+            ExposedPorts."4000/tcp" = { };
+
+            Env = [
+              "PORT=4000"
+              "ADMIN_BIND_ALL=1"
+              "DATABASE_URL=postgresql://postgres@postgres/postgres"
+              "RSVG_FONT_FAMILY=Dejavu Sans Mono"
+              "CACHE_PATH=/var/cache/asciinema"
+              "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+              "FONTCONFIG_FILE=${fontsConf}"
+              "LANG=C.UTF-8"
+              "PATH=/opt/app/bin:/bin"
+            ];
+          };
+        };
+
         devShells.default = pkgs.mkShell {
           packages =
             with pkgs;
@@ -116,7 +199,7 @@
               imagemagick
               playwright-driver.browsers
             ]
-            ++ self.packages.${system}.default.buildInputs
+            ++ server.buildInputs
             ++ lib.optionals stdenv.isLinux [ inotify-tools ];
 
           shellHook = ''
@@ -145,7 +228,7 @@
               rustPackages.clippy
               imagemagick
             ]
-            ++ self.packages.${system}.default.buildInputs;
+            ++ server.buildInputs;
 
           shellHook = mixShellHook;
         };
