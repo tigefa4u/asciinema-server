@@ -166,56 +166,60 @@
         '';
       in
       {
-        packages.default = server;
+        packages = {
+          default = server;
+        }
+        # The OCI image is Linux-only
+        // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+          # OCI image, a drop-in replacement for the Dockerfile-built one.
+          # Build and load: nix build .#image && ./result | podman load
+          image = pkgs.dockerTools.streamLayeredImage {
+            name = "asciinema-server";
+            tag = "latest";
 
-        # OCI image, a drop-in replacement for the Dockerfile-built one.
-        # Build and load: nix build .#image && ./result | podman load
-        packages.image = pkgs.dockerTools.streamLayeredImage {
-          name = "asciinema-server";
-          tag = "latest";
-
-          contents = with pkgs; [
-            server
-            imageEntrypoint
-            bashInteractive
-            coreutils
-            tini
-            cacert
-            tzdata
-          ];
-
-          fakeRootCommands = ''
-            mkdir -p tmp opt var/lib/asciinema var/cache/asciinema
-            chmod 1777 tmp
-            # /opt/app mirrors the legacy image layout, keeping documented
-            # bind mounts like /opt/app/etc/custom.exs working
-            ln -s ${server} opt/app
-            cp ${./.iex.exs} .iex.exs
-            # support running as an arbitrary uid (gid 0), like the legacy image
-            chgrp -R 0 var/lib/asciinema var/cache/asciinema
-            chmod -R g=u var/lib/asciinema var/cache/asciinema
-          '';
-
-          config = {
-            Entrypoint = [
-              "${pkgs.tini}/bin/tini"
-              "--"
-              "${imageEntrypoint}/bin/image-entrypoint"
+            contents = with pkgs; [
+              server
+              imageEntrypoint
+              bashInteractive
+              coreutils
+              tini
+              cacert
+              tzdata
             ];
-            Cmd = [ "/opt/app/bin/server" ];
-            WorkingDir = "/";
-            ExposedPorts."4000/tcp" = { };
 
-            Env = [
-              "PORT=4000"
-              "ADMIN_BIND_ALL=1"
-              "DATABASE_URL=postgresql://postgres@postgres/postgres"
-              "CACHE_PATH=/var/cache/asciinema"
-              "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-              "LANG=C.UTF-8"
-              "TZDIR=/share/zoneinfo"
-              "PATH=/opt/app/bin:/bin"
-            ];
+            fakeRootCommands = ''
+              mkdir -p tmp opt var/lib/asciinema var/cache/asciinema
+              chmod 1777 tmp
+              # /opt/app mirrors the legacy image layout, keeping documented
+              # bind mounts like /opt/app/etc/custom.exs working
+              ln -s ${server} opt/app
+              cp ${./.iex.exs} .iex.exs
+              # support running as an arbitrary uid (gid 0), like the legacy image
+              chgrp -R 0 var/lib/asciinema var/cache/asciinema
+              chmod -R g=u var/lib/asciinema var/cache/asciinema
+            '';
+
+            config = {
+              Entrypoint = [
+                "${pkgs.tini}/bin/tini"
+                "--"
+                "${imageEntrypoint}/bin/image-entrypoint"
+              ];
+              Cmd = [ "/opt/app/bin/server" ];
+              WorkingDir = "/";
+              ExposedPorts."4000/tcp" = { };
+
+              Env = [
+                "PORT=4000"
+                "ADMIN_BIND_ALL=1"
+                "DATABASE_URL=postgresql://postgres@postgres/postgres"
+                "CACHE_PATH=/var/cache/asciinema"
+                "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+                "LANG=C.UTF-8"
+                "TZDIR=/share/zoneinfo"
+                "PATH=/opt/app/bin:/bin"
+              ];
+            };
           };
         };
 
