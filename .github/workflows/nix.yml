@@ -20,6 +20,6 @@ jobs:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
     - uses: nix-community/cache-nix-action@v6
       with:
-        primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
-        restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}
-    - run: nix build
+        primary-key: nix-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+        restore-prefixes-first-match: nix-build-${{ runner.os }}-${{ runner.arch }}
+    - run: nix build .#default .#image
