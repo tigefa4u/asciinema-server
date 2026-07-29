@@ -66,8 +66,8 @@
         # Tools the app shells out to at runtime: rsvg-convert (librsvg) and
         # pngquant for SVG->PNG rendering, fd for file cache cleanup, plus
         # `which` and `grep`, used by priv/svg2png.sh to probe for
-        # timeout/pngquant. Consumed by the package build, the NixOS module,
-        # and the OCI image.
+        # timeout/pngquant. The release embeds these on PATH via env.sh (see
+        # postInstall), so the module and image need no extra provisioning.
         runtimeTools = with pkgs; [
           librsvg
           pngquant
@@ -107,21 +107,28 @@
             mix assets.deploy
           '';
 
-          buildInputs = runtimeTools;
-
-          # buildInputs resolves to dev outputs in the build env, so expose the
-          # plain runtime outputs separately for the module and image.
-          passthru.runtimeTools = runtimeTools;
-
           nativeBuildInputs = [ pkgs.removeReferencesTo ];
 
           # preConfigure bakes esbuild/tailwind store paths into config, which
           # ends up in sys.config. They are build-time only (assets.deploy);
           # scrub the references so they don't bloat the runtime closure, and
           # fail the build if they ever reappear.
+          #
+          # Then make the release self-contained: env.sh (sourced by every
+          # bin/* command) gets the runtime tools on PATH plus the font setup
+          # for SVG->PNG rendering. The embedded store paths pull the tools
+          # and fonts into the closure, so consumers need no provisioning.
           postInstall = ''
             find $out/releases -name sys.config \
               -exec remove-references-to -t ${pkgs.esbuild} -t ${pkgs.tailwindcss_3} {} +
+
+            for env_sh in $out/releases/*/env.sh; do
+              printf '\n%s\n%s\n%s\n' \
+                'export PATH="${pkgs.lib.makeBinPath runtimeTools}:$PATH"' \
+                'export FONTCONFIG_FILE="''${FONTCONFIG_FILE:-${fontsConf}}"' \
+                'export RSVG_FONT_FAMILY="''${RSVG_FONT_FAMILY:-Dejavu Sans Mono}"' \
+                >>"$env_sh"
+            done
           '';
 
           disallowedReferences = [
@@ -139,13 +146,15 @@
         # because the release lives in the read-only Nix store, so the stock
         # scripts cannot write a generated cookie or runtime sys.config there.
         imageEntrypoint = pkgs.writeShellScriptBin "image-entrypoint" ''
+          set -eu
+
           export RELEASE_TMP=/tmp
 
-          if [ -z "$RELEASE_COOKIE" ]; then
+          if [ -z "''${RELEASE_COOKIE:-}" ]; then
             data_dir="''${DATA_DIR:-/var/lib/asciinema}"
             cookie_file="$data_dir/release_cookie"
 
-            if [ ! -f "$cookie_file" ]; then
+            if [ ! -s "$cookie_file" ]; then
               (umask 077; od -An -tx1 -N32 /dev/urandom | tr -d ' \n' > "$cookie_file")
             fi
 
@@ -164,20 +173,16 @@
         packages.image = pkgs.dockerTools.streamLayeredImage {
           name = "asciinema-server";
           tag = "latest";
-          maxLayers = 100;
 
-          contents =
-            with pkgs;
-            [
-              server
-              imageEntrypoint
-              bashInteractive
-              coreutils
-              tini
-              cacert
-              dejavu_fonts
-            ]
-            ++ runtimeTools;
+          contents = with pkgs; [
+            server
+            imageEntrypoint
+            bashInteractive
+            coreutils
+            tini
+            cacert
+            tzdata
+          ];
 
           fakeRootCommands = ''
             mkdir -p tmp opt var/lib/asciinema var/cache/asciinema
@@ -205,11 +210,10 @@
               "PORT=4000"
               "ADMIN_BIND_ALL=1"
               "DATABASE_URL=postgresql://postgres@postgres/postgres"
-              "RSVG_FONT_FAMILY=Dejavu Sans Mono"
               "CACHE_PATH=/var/cache/asciinema"
               "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-              "FONTCONFIG_FILE=${fontsConf}"
               "LANG=C.UTF-8"
+              "TZDIR=/share/zoneinfo"
               "PATH=/opt/app/bin:/bin"
             ];
           };
@@ -333,7 +337,11 @@
               description = ''
                 Package providing the asciinema server release. The package must
                 expose `bin/server`, which runs migrations and starts the
-                Phoenix server.
+                Phoenix server, and must be self-contained like the default
+                package: the service provides no PATH, so the release itself
+                has to supply the tools it shells out to (rsvg-convert,
+                pngquant, fd) and its font configuration - see the env.sh
+                setup in the server derivation.
               '';
             };
 
@@ -446,10 +454,6 @@
                 "network-online.target"
               ]
               ++ lib.optional cfg.database.createLocally "postgresql-setup.service";
-
-              # Runtime tools the app shells out to by bare name; the package
-              # exposes them via passthru (see the server derivation).
-              path = pkg.runtimeTools;
 
               script = ''
                 [ -n "$SECRET_KEY_BASE" ] || export SECRET_KEY_BASE="$(cat "$HOME/secret_key_base")"
