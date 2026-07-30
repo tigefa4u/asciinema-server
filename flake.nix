@@ -49,6 +49,10 @@
           export MIX_PATH="${beamPackages.hex}/lib/erlang/lib/hex/ebin"
           export MIX_REBAR3="${beamPackages.rebar3}/bin/rebar3"
           export PATH=$MIX_HOME/bin:$HEX_HOME/bin:$PATH
+
+          # use the nix-provided esbuild instead of downloading the binary
+          # in assets.setup (config.exs reads this into :esbuild, :path)
+          export MIX_ESBUILD_PATH="${pkgs.esbuild}/bin/esbuild"
         '';
 
         npmDeps = pkgs.buildNpmPackage {

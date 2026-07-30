@@ -139,8 +139,13 @@ librejs_license_end = "/* @license-end */"
 # Keep this version in sync with the nixpkgs esbuild used by the nix package
 # build (flake.nix bakes its store path via preConfigure), so dev/CI/Docker
 # produce the same JS/CSS output as the production artifact.
+#
+# MIX_ESBUILD_PATH (exported by the nix dev shells) points mix at the
+# nix-provided esbuild binary, skipping the download in assets.setup.
+# When unset (non-nix environments), the standard download path applies.
 config :esbuild,
   version: "0.27.2",
+  path: System.get_env("MIX_ESBUILD_PATH"),
   default: [
     args:
       ~w(js/app.js js/iframe.js --bundle --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*) ++
