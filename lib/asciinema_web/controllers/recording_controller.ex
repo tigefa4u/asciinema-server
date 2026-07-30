@@ -289,9 +289,10 @@ defmodule AsciinemaWeb.RecordingController do
       fn tmp_dir ->
         gz_path = Path.join(tmp_dir, Path.basename(source_path)) <> ".gz"
 
-        source_path
-        |> stream_path!(source_encoding)
-        |> Enum.into(Gzip.stream!(gz_path, @encoding_chunk_size))
+        _ =
+          source_path
+          |> stream_path!(source_encoding)
+          |> Enum.into(Gzip.stream!(gz_path, @encoding_chunk_size))
 
         gz_path
       end,
@@ -306,9 +307,10 @@ defmodule AsciinemaWeb.RecordingController do
       fn tmp_dir ->
         zst_path = Path.join(tmp_dir, Path.basename(source_path)) <> ".zst"
 
-        source_path
-        |> File.stream!([], @encoding_chunk_size)
-        |> Enum.into(Zstd.stream!(zst_path, @encoding_chunk_size))
+        _ =
+          source_path
+          |> File.stream!([], @encoding_chunk_size)
+          |> Enum.into(Zstd.stream!(zst_path, @encoding_chunk_size))
 
         zst_path
       end,
@@ -323,9 +325,10 @@ defmodule AsciinemaWeb.RecordingController do
       fn tmp_dir ->
         path = Path.join(tmp_dir, Path.rootname(Path.basename(source_path), ".zst"))
 
-        source_path
-        |> stream_path!(source_encoding)
-        |> Enum.into(File.stream!(path, [:write, :binary], @encoding_chunk_size))
+        _ =
+          source_path
+          |> stream_path!(source_encoding)
+          |> Enum.into(File.stream!(path, [:write, :binary], @encoding_chunk_size))
 
         path
       end,

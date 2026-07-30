@@ -1,6 +1,6 @@
 defmodule Asciinema.Asciicast.V2 do
-  alias Asciinema.Colors
   alias Asciinema.Asciicast.{EventStream, Reader}
+  alias Asciinema.Colors
 
   defmodule Writer do
     @enforce_keys [:file]

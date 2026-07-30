@@ -410,9 +410,7 @@ defmodule Asciinema.FileCache do
   defp validate_output_path(work_dir, output_path) when is_binary(output_path) do
     abs_output_path = Path.absname(output_path, work_dir)
 
-    if !path_within_dir?(abs_output_path, work_dir) do
-      {:error, {:invalid_generator_output, {:outside_work_dir, output_path}}}
-    else
+    if path_within_dir?(abs_output_path, work_dir) do
       case File.stat(abs_output_path) do
         {:ok, %File.Stat{type: :regular}} ->
           {:ok, abs_output_path}
@@ -423,6 +421,8 @@ defmodule Asciinema.FileCache do
         {:error, reason} ->
           {:error, {:invalid_generator_output, {:missing_or_unreadable, output_path, reason}}}
       end
+    else
+      {:error, {:invalid_generator_output, {:outside_work_dir, output_path}}}
     end
   end
 

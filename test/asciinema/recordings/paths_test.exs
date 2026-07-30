@@ -56,7 +56,7 @@ defmodule Asciinema.Recordings.PathsTest do
 
     test "uses last 4 digits (reversed) for {shard} token - long id" do
       AppEnv.put(Paths, recording: "asciicasts/{shard}/{id}.{ext}")
-      asciicast = build_asciicast(id: 12345)
+      asciicast = build_asciicast(id: 12_345)
 
       path = Paths.path(asciicast)
 

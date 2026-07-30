@@ -2,8 +2,8 @@ defmodule AsciinemaWeb.RecordingSVG do
   use Phoenix.Component
   import Phoenix.HTML
   alias Asciinema.{Colors, Media, Themes}
-  alias Asciinema.SvgRaster
   alias Asciinema.Recordings.Snapshot
+  alias Asciinema.SvgRaster
   alias Phoenix.HTML
 
   use AsciinemaWeb, :verified_routes

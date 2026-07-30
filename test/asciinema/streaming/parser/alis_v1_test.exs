@@ -1,7 +1,7 @@
 defmodule Asciinema.Streaming.Parser.AlisV1Test do
   use ExUnit.Case, async: true
-  alias Asciinema.Streaming.Parser.AlisV1
   alias Asciinema.Leb128
+  alias Asciinema.Streaming.Parser.AlisV1
 
   describe "parse/2" do
     test "non-magic-string as the first message" do

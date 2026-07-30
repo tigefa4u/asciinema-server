@@ -1,6 +1,6 @@
 defmodule Asciinema.FileStore.S3 do
   use Asciinema.Config
-  alias ExAws.{S3, Config}
+  alias ExAws.{Config, S3}
 
   @behaviour Asciinema.FileStore
 

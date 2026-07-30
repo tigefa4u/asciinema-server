@@ -2,10 +2,10 @@ defmodule AsciinemaWeb.Authentication do
   import Plug.Conn
   import Phoenix.Controller, only: [get_format: 1, put_flash: 3, redirect: 2]
   import AsciinemaWeb.Plug.ReturnTo
-  alias Plug.Conn
   alias Asciinema.Accounts
   alias Asciinema.Accounts.User
   alias AsciinemaWeb.Endpoint
+  alias Plug.Conn
 
   use AsciinemaWeb, :verified_routes
 

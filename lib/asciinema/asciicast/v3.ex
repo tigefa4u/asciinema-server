@@ -1,7 +1,7 @@
 defmodule Asciinema.Asciicast.V3 do
+  alias Asciinema.Asciicast.{EventStream, Reader}
   alias Asciinema.Colors
   alias Asciinema.Quantizer
-  alias Asciinema.Asciicast.{EventStream, Reader}
 
   defmodule Writer do
     @enforce_keys [:file, :prev_time, :time_quantizer]

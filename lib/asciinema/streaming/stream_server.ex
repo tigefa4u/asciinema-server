@@ -2,9 +2,9 @@ defmodule Asciinema.Streaming.StreamServer do
   use GenServer, restart: :temporary
   use Asciinema.Config
   alias Asciinema.Asciicast.V3
+  alias Asciinema.{Colors, FileStore, PubSub, Streaming, Vt}
   alias Asciinema.Streaming.ViewerTracker
   alias Asciinema.Workers.CreateStreamRecording
-  alias Asciinema.{Colors, FileStore, PubSub, Streaming, Vt}
   require Logger
 
   defmodule Update do
