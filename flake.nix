@@ -84,7 +84,7 @@
           mixFodDeps = beamPackages.fetchMixDeps {
             pname = "${pname}-mix-deps";
             inherit src version;
-            hash = "sha256-6wMTtxfNw8UbfNW3femZSwUH/Syq2viVfcNCmgDMOFU=";
+            hash = "sha256-LHCM4d6OEeB6ywNdVyb1Z3qTLQbX2Eh5kI/0v/fbAys=";
           };
 
           preConfigure = ''
@@ -93,7 +93,6 @@
             config :asciinema, Asciinema.Fts, skip_compilation?: true
             config :asciinema, Asciinema.SvgRaster, skip_compilation?: true
             config :esbuild, path: "${pkgs.esbuild}/bin/esbuild"
-            config :tailwind, path: "${pkgs.tailwindcss_3}/bin/tailwindcss"
             EOF
 
             mkdir -p priv/native
@@ -109,10 +108,10 @@
 
           nativeBuildInputs = [ pkgs.removeReferencesTo ];
 
-          # preConfigure bakes esbuild/tailwind store paths into config, which
-          # ends up in sys.config. They are build-time only (assets.deploy);
-          # scrub the references so they don't bloat the runtime closure, and
-          # fail the build if they ever reappear.
+          # preConfigure bakes the esbuild store path into config, which ends
+          # up in sys.config. It is build-time only (assets.deploy); scrub the
+          # reference so it doesn't bloat the runtime closure, and fail the
+          # build if it ever reappears.
           #
           # Then make the release self-contained: env.sh (sourced by every
           # bin/* command) gets the runtime tools on PATH plus the font setup
@@ -120,7 +119,7 @@
           # and fonts into the closure, so consumers need no provisioning.
           postInstall = ''
             find $out/releases -name sys.config \
-              -exec remove-references-to -t ${pkgs.esbuild} -t ${pkgs.tailwindcss_3} {} +
+              -exec remove-references-to -t ${pkgs.esbuild} {} +
 
             for env_sh in $out/releases/*/env.sh; do
               printf '\n%s\n%s\n%s\n' \
@@ -131,10 +130,7 @@
             done
           '';
 
-          disallowedReferences = [
-            pkgs.esbuild
-            pkgs.tailwindcss_3
-          ];
+          disallowedReferences = [ pkgs.esbuild ];
         };
 
         fontsConf = pkgs.makeFontsConf {

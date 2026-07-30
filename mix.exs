@@ -94,7 +94,6 @@ defmodule Asciinema.MixProject do
       {:sentry, "~> 13.3"},
       {:stream_data, "~> 1.0", only: :test},
       {:swoosh, "~> 1.16"},
-      {:tailwind, "~> 0.3.1", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.1"},
       {:telemetry_poller, "~> 1.0"},
       {:tzdata, "~> 1.1"},
@@ -114,15 +113,13 @@ defmodule Asciinema.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       "assets.setup": [
-        "tailwind.install --if-missing --no-assets",
         "esbuild.install --if-missing"
       ],
-      "assets.build": ["tailwind default", "tailwind iframe", "esbuild default", "esbuild admin"],
+      "assets.build": ["esbuild default", "esbuild admin", "esbuild css"],
       "assets.deploy": [
-        "tailwind default --minify",
-        "tailwind iframe --minify",
         "esbuild default --minify",
         "esbuild admin --minify",
+        "esbuild css --minify",
         "phx.digest"
       ],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
