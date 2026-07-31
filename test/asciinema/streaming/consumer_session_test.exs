@@ -126,6 +126,15 @@ defmodule Asciinema.Streaming.ConsumerSessionTest do
     assert frame == Alis.V1.encode_frame({:output, %{id: 2, rel_time: 50, text: "y"}})
   end
 
+  test "a backwards end time also clamps and does not regress the clock" do
+    session = initialized()
+
+    {frame, session} = ConsumerSession.handle_event(session, :end, %{time: 90})
+
+    assert frame == Alis.V1.encode_frame({:eot, %{rel_time: 0}})
+    assert session.last_event_time == 100
+  end
+
   test "end produces an EOT frame and returns the session to awaiting init" do
     session = initialized()
 

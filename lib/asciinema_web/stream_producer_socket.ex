@@ -1,6 +1,7 @@
 defmodule AsciinemaWeb.StreamProducerSocket do
   import Plug.Conn
 
+  alias Asciinema.AppEnv
   alias Asciinema.Streaming
   alias Asciinema.Streaming.{ProducerSession, StreamServer, StreamSupervisor}
   require Logger
@@ -301,6 +302,6 @@ defmodule AsciinemaWeb.StreamProducerSocket do
   end
 
   defp config(key, default) do
-    Application.get_env(:asciinema, :"stream_producer_#{key}", default)
+    AppEnv.get(:"stream_producer_#{key}", default)
   end
 end

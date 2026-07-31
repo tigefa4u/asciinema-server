@@ -76,6 +76,11 @@ defmodule Asciinema.Streaming.ProducerSessionTest do
 
     assert {:error, {:invalid_vt_size, {0, 24}}, []} =
              ProducerSession.receive_frame(session, {:binary, init}, 0)
+
+    oversized = Alis.V1.encode_frame({:init, %{last_id: 0, time: 0, term_size: {721, 24}}})
+
+    assert {:error, {:invalid_vt_size, {721, 24}}, []} =
+             ProducerSession.receive_frame(session, {:binary, oversized}, 0)
   end
 
   test "a valid command in the wrong phase errors instead of raising" do
