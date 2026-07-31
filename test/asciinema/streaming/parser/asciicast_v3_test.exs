@@ -153,11 +153,11 @@ defmodule Asciinema.Streaming.Parser.AsciicastV3Test do
   defp new, do: AsciicastV3.init()
 
   defp parse(state, text) do
-    AsciicastV3.parse({:text, text}, state)
+    AsciicastV3.parse({:text, text}, state, 0)
   end
 
   defp parse!(state, text) do
-    {:ok, _actions, state} = AsciicastV3.parse({:text, text}, state)
+    {:ok, _actions, state} = AsciicastV3.parse({:text, text}, state, 0)
 
     state
   end

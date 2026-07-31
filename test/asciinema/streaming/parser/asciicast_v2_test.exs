@@ -136,11 +136,11 @@ defmodule Asciinema.Streaming.Parser.AsciicastV2Test do
     defp new, do: AsciicastV2.init()
 
     defp parse(state, binary) do
-      AsciicastV2.parse({:text, binary}, state)
+      AsciicastV2.parse({:text, binary}, state, 0)
     end
 
     defp parse!(state, binary) do
-      {:ok, _actions, state} = AsciicastV2.parse({:text, binary}, state)
+      {:ok, _actions, state} = AsciicastV2.parse({:text, binary}, state, 0)
 
       state
     end

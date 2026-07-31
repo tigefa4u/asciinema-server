@@ -11,10 +11,10 @@ defmodule Asciinema.Streaming.Parser.AsciicastV3 do
 
   def init, do: %{first: true, last_event_id: 0, time_offset: 0}
 
-  def parse({:text, "\n"}, state), do: {:ok, [], state}
-  def parse({:text, "#" <> _}, state), do: {:ok, [], state}
+  def parse({:text, "\n"}, state, _now_us), do: {:ok, [], state}
+  def parse({:text, "#" <> _}, state, _now_us), do: {:ok, [], state}
 
-  def parse({:text, payload}, state) do
+  def parse({:text, payload}, state, _now_us) do
     case Jason.decode(payload) do
       {:ok, message} ->
         handle_message(message, state)

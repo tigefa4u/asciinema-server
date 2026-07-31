@@ -29,7 +29,7 @@ defmodule AsciinemaWeb.StreamProducerSocket do
             |> halt()
 
           protocol ->
-            parser = Parser.get(protocol)
+            parser = Parser.new(protocol)
 
             conn
             |> put_resp_header("sec-websocket-protocol", protocol)
@@ -58,7 +58,7 @@ defmodule AsciinemaWeb.StreamProducerSocket do
         Process.send_after(self(), :server_heartbeat, @server_heartbeat_interval)
 
         if parser do
-          Logger.info("producer/#{stream.id}: negotiated #{parser.impl.name()} protocol")
+          Logger.info("producer/#{stream.id}: negotiated #{Parser.name(parser)} protocol")
         else
           Logger.info("producer/#{stream.id}: no protocol negotiated, will try to auto-detect")
         end
@@ -70,21 +70,23 @@ defmodule AsciinemaWeb.StreamProducerSocket do
   @impl true
   def handle_in(frame, state)
 
-  def handle_in(message, %{parser: nil} = state) do
-    parser = Parser.get(detect_protocol(message))
-    Logger.info("producer/#{state.stream_id}: detected #{parser.impl.name()} protocol")
+  def handle_in({payload, opcode: opcode} = message, %{parser: nil} = state)
+      when opcode in [:text, :binary] do
+    parser = Parser.new(Parser.detect({opcode, payload}))
+    Logger.info("producer/#{state.stream_id}: detected #{Parser.name(parser)} protocol")
     state = set_parser(state, parser)
     handle_in(message, state)
   end
 
   def handle_in({payload, opcode: opcode}, %{parser: parser} = state)
       when opcode in [:text, :binary] do
-    message = {opcode, payload}
+    frame = {opcode, payload}
+    now = System.system_time(:microsecond)
 
-    with {:ok, commands, new_parser_state} <- run_parser(parser, message),
+    with {:ok, commands, parser} <- run_parser(parser, frame, now),
          {:ok, state} <- run_commands(commands, state),
          {:ok, state} <- drain_bucket(state, byte_size(payload)) do
-      {:ok, put_in(state, [:parser, :state], new_parser_state)}
+      {:ok, %{state | parser: parser}}
     else
       {:error, reason} ->
         handle_error(reason, state)
@@ -169,20 +171,20 @@ defmodule AsciinemaWeb.StreamProducerSocket do
 
   defp set_parser(state, parser) do
     if parser do
-      save_protocol(state.stream_id, parser.impl.name())
+      save_protocol(state.stream_id, Parser.name(parser))
     end
 
     # for protocols that support EOT (alis) we stop the stream server upon
     # receiving the :eot command, for the rest we stop the server in
     # terminate/2
-    stop = if parser, do: :eot not in parser.impl.supported_commands()
+    stop = if parser, do: not Parser.supports?(parser, :eot)
 
     %{state | parser: parser, stop_server_on_terminate: stop}
   end
 
-  defp run_parser(%{impl: impl, state: state}, message) do
-    with {:error, reason} <- impl.parse(message, state) do
-      {:error, {:parser, reason, message}}
+  defp run_parser(parser, frame, now) do
+    with {:error, reason} <- Parser.parse(parser, frame, now) do
+      {:error, {:parser, reason, frame}}
     end
   end
 
@@ -323,20 +325,6 @@ defmodule AsciinemaWeb.StreamProducerSocket do
 
     List.first(common)
   end
-
-  def detect_protocol({:binary, "ALiS\x01"}), do: "v1.alis"
-  def detect_protocol({:binary, _}), do: "raw"
-
-  def detect_protocol({:text, header}) do
-    case Jason.decode(header) do
-      {:ok, %{"version" => 2}} -> "v2.asciicast"
-      {:ok, %{"version" => 3}} -> "v3.asciicast"
-      _otherwise -> "raw"
-    end
-  end
-
-  def detect_protocol({payload, opcode: :binary}), do: detect_protocol({:binary, payload})
-  def detect_protocol({payload, opcode: :text}), do: detect_protocol({:text, payload})
 
   defp save_protocol(stream_id, protocol) do
     stream_id

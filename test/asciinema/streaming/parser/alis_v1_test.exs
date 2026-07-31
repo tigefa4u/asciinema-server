@@ -158,11 +158,11 @@ defmodule Asciinema.Streaming.Parser.AlisV1Test do
   defp new, do: AlisV1.init()
 
   defp parse(state, binary) do
-    AlisV1.parse({:binary, binary}, state)
+    AlisV1.parse({:binary, binary}, state, 0)
   end
 
   defp parse!(state, binary) do
-    {:ok, _actions, state} = AlisV1.parse({:binary, binary}, state)
+    {:ok, _actions, state} = AlisV1.parse({:binary, binary}, state, 0)
     state
   end
 

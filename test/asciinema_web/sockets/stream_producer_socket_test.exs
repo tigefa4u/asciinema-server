@@ -31,37 +31,14 @@ defmodule AsciinemaWeb.StreamProducerSocketTest do
       refute_received {^ref, :upgrade, _}
     end
 
-    test "sub-protocol auto-detection, stream found" do
+    test "connection without negotiated sub-protocol, stream found" do
       insert(:stream, producer_token: "s3kr1t", live: true)
 
       assert {:ok, _} = connect("s3kr1t")
     end
 
-    test "sub-protocol auto-detection, stream not found" do
+    test "connection without negotiated sub-protocol, stream not found" do
       assert {:stop, :stream_not_found, {4040, "stream not found"}, _} = connect("nope")
-    end
-  end
-
-  describe "detect_protocol/1" do
-    test "alis v1" do
-      assert StreamProducerSocket.detect_protocol({:binary, "ALiS\x01"}) == "v1.alis"
-    end
-
-    test "asciicast v2" do
-      assert StreamProducerSocket.detect_protocol({:text, ~s|{"version": 2}|}) == "v2.asciicast"
-    end
-
-    test "asciicast v3" do
-      assert StreamProducerSocket.detect_protocol({:text, ~s|{"version": 3}|}) == "v3.asciicast"
-    end
-
-    test "raw" do
-      assert StreamProducerSocket.detect_protocol({:binary, "hello"}) == "raw"
-    end
-
-    test "other text falls back to raw" do
-      assert StreamProducerSocket.detect_protocol({:text, ~s|{}|}) == "raw"
-      assert StreamProducerSocket.detect_protocol({:text, ~s|hola!|}) == "raw"
     end
   end
 

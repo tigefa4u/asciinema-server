@@ -11,22 +11,22 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
 
   def init, do: %{status: :new, time_offset: 0}
 
-  def parse({:binary, "ALiS\x01"}, %{status: :new} = state) do
+  def parse({:binary, "ALiS\x01"}, %{status: :new} = state, _now_us) do
     {:ok, [], %{state | status: :init}}
   end
 
-  def parse({:binary, "ALiS" <> rest}, %{status: :new}) do
+  def parse({:binary, "ALiS" <> rest}, %{status: :new}, _now_us) do
     {:error, "unsupported ALiS version/configuration: #{inspect(rest)}"}
   end
 
-  def parse({:binary, <<0x01::8, rest::binary>>}, %{status: status} = state)
+  def parse({:binary, <<0x01::8, rest::binary>>}, %{status: status} = state, _now_us)
       when status in [:init, :eot] do
     init = parse_init(rest)
 
     {:ok, [init: init], %{state | status: :online, time_offset: init.time}}
   end
 
-  def parse({:binary, <<?o, rest::binary>>}, %{status: :online} = state) do
+  def parse({:binary, <<?o, rest::binary>>}, %{status: :online} = state, _now_us) do
     data = parse_output(rest)
     time = state.time_offset + data.time
     data = %{data | time: time}
@@ -34,7 +34,7 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
     {:ok, [output: data], %{state | time_offset: time}}
   end
 
-  def parse({:binary, <<?i, rest::binary>>}, %{status: :online} = state) do
+  def parse({:binary, <<?i, rest::binary>>}, %{status: :online} = state, _now_us) do
     data = parse_input(rest)
     time = state.time_offset + data.time
     data = %{data | time: time}
@@ -42,7 +42,7 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
     {:ok, [input: data], %{state | time_offset: time}}
   end
 
-  def parse({:binary, <<?r, rest::binary>>}, %{status: :online} = state) do
+  def parse({:binary, <<?r, rest::binary>>}, %{status: :online} = state, _now_us) do
     data = parse_resize(rest)
     time = state.time_offset + data.time
     data = %{data | time: time}
@@ -50,7 +50,7 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
     {:ok, [resize: data], %{state | time_offset: time}}
   end
 
-  def parse({:binary, <<?m, rest::binary>>}, %{status: :online} = state) do
+  def parse({:binary, <<?m, rest::binary>>}, %{status: :online} = state, _now_us) do
     data = parse_marker(rest)
     time = state.time_offset + data.time
     data = %{data | time: time}
@@ -58,7 +58,7 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
     {:ok, [marker: data], %{state | time_offset: time}}
   end
 
-  def parse({:binary, <<?x, rest::binary>>}, %{status: :online} = state) do
+  def parse({:binary, <<?x, rest::binary>>}, %{status: :online} = state, _now_us) do
     data = parse_exit(rest)
     time = state.time_offset + data.time
     data = %{data | time: time}
@@ -66,7 +66,7 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
     {:ok, [exit: data], %{state | time_offset: time}}
   end
 
-  def parse({:binary, <<0x04, rest::binary>>}, %{status: status} = state)
+  def parse({:binary, <<0x04, rest::binary>>}, %{status: status} = state, _now_us)
       when status in [:init, :online] do
     data = parse_eot(rest)
     time = state.time_offset + data.time
@@ -75,7 +75,7 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
     {:ok, [eot: data], %{state | status: :eot}}
   end
 
-  def parse({_type, _payload}, _state) do
+  def parse({_type, _payload}, _state, _now_us) do
     {:error, :message_invalid}
   end
 
