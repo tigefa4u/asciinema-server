@@ -126,21 +126,26 @@ defmodule Asciinema.Streaming.ConsumerSessionTest do
     assert frame == Alis.V1.encode_frame({:output, %{id: 2, rel_time: 50, text: "y"}})
   end
 
-  test "end produces an EOT frame and keeps the session initialized" do
+  test "end produces an EOT frame and returns the session to awaiting init" do
     session = initialized()
 
     {frame, session} = ConsumerSession.handle_event(session, :end, %{time: 250})
 
     assert frame == Alis.V1.encode_frame({:eot, %{rel_time: 150}})
+    refute session.init
 
-    # Current wire behavior: the session stays initialized after EOT, so a
-    # following stream restart is delivered via reset. Gating anomalous
-    # events between EOT and reset is a planned, separately flagged change.
-    assert session.init
+    # events between EOT and the next init are dropped
+    assert {nil, ^session} =
+             ConsumerSession.handle_event(session, :output, %{id: 8, time: 300, text: "y"})
 
+    # the stream restart re-initializes via reset
     {frame, _session} =
-      ConsumerSession.handle_event(session, :output, %{id: 8, time: 300, text: "y"})
+      ConsumerSession.handle_event(session, :reset, %{
+        last_id: 9,
+        time: 400,
+        term_size: {80, 24}
+      })
 
-    assert frame == Alis.V1.encode_frame({:output, %{id: 8, rel_time: 50, text: "y"}})
+    assert <<1, _rest::binary>> = frame
   end
 end
