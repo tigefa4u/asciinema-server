@@ -73,22 +73,16 @@ defmodule AsciinemaWeb.StreamProducerSocket do
     now = System.system_time(:microsecond)
     newly_detected = not ProducerSession.parser_selected?(state.session)
 
-    case ProducerSession.receive_frame(state.session, frame, now) do
-      {:ok, effects, session} ->
-        if newly_detected do
-          Logger.info(
-            "producer/#{state.stream_id}: detected #{ProducerSession.parser_name(session)} protocol"
-          )
-        end
-
-        with {:ok, state} <- execute_effects(effects, state),
-             {:ok, session} <- ProducerSession.drain_bucket(session, byte_size(payload)) do
-          {:ok, %{state | session: session}}
-        else
-          # the pending session is committed only on full success; on failure
-          # the socket closes with the last committed session in its state
-          {:error, reason} -> handle_error(reason, state)
-        end
+    # drain the budget first: over-budget frames are rejected before parsing
+    with {:ok, session} <- ProducerSession.drain_bucket(state.session, byte_size(payload)),
+         {:ok, effects, session} <- ProducerSession.receive_frame(session, frame, now),
+         :ok <- log_detection(newly_detected, session, state),
+         {:ok, state} <- execute_effects(effects, state) do
+      # the pending session is committed only on full success
+      {:ok, %{state | session: session}}
+    else
+      {:error, reason} ->
+        handle_error(reason, state)
 
       {:error, reason, effects} ->
         {:ok, state} = execute_effects(effects, state)
@@ -98,6 +92,14 @@ defmodule AsciinemaWeb.StreamProducerSocket do
   end
 
   def handle_in(_message, state), do: {:ok, state}
+
+  defp log_detection(false, _session, _state), do: :ok
+
+  defp log_detection(true, session, state) do
+    Logger.info(
+      "producer/#{state.stream_id}: detected #{ProducerSession.parser_name(session)} protocol"
+    )
+  end
 
   @impl true
   def handle_info(:client_ping, state) do
