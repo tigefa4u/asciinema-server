@@ -63,9 +63,13 @@ defmodule Asciinema.Streaming.ConsumerSession do
     {frame, %__MODULE__{init: true, last_event_time: data.time}}
   end
 
-  defp rel_time(session, time), do: time - session.last_event_time
+  # deltas are clamped to keep the wire clock monotonic (the unsigned wire
+  # encoding would otherwise silently produce garbage), like in the CLI
+  defp rel_time(session, time), do: max(time - session.last_event_time, 0)
 
   defp push(session, time, wire_event) do
-    {Alis.V1.encode_frame(wire_event), %{session | last_event_time: time}}
+    frame = Alis.V1.encode_frame(wire_event)
+
+    {frame, %{session | last_event_time: max(time, session.last_event_time)}}
   end
 end

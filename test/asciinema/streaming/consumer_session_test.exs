@@ -111,16 +111,19 @@ defmodule Asciinema.Streaming.ConsumerSessionTest do
              )
   end
 
-  test "negative time delta is passed through unclamped" do
-    # Pins current wire behavior: a backwards event time goes through the
-    # unsigned LEB128 encoder without clamping (-10 encodes as byte 118).
-    # Monotonic clamping is a planned, separately flagged change.
+  test "backwards event times clamp to a zero delta and keep the clock monotonic" do
     session = initialized()
 
-    {frame, _session} =
+    {frame, session} =
       ConsumerSession.handle_event(session, :output, %{id: 1, time: 90, text: "x"})
 
-    assert frame == <<?o, 1, 118, 1, ?x>>
+    assert frame == Alis.V1.encode_frame({:output, %{id: 1, rel_time: 0, text: "x"}})
+
+    # the clock did not move backwards: the next delta is measured from 100
+    {frame, _session} =
+      ConsumerSession.handle_event(session, :output, %{id: 2, time: 150, text: "y"})
+
+    assert frame == Alis.V1.encode_frame({:output, %{id: 2, rel_time: 50, text: "y"}})
   end
 
   test "end produces an EOT frame and keeps the session initialized" do
