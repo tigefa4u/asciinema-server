@@ -4,6 +4,8 @@ defmodule AsciinemaWeb.StreamConsumerSocketTest do
   import Plug.Conn
   import Plug.Test
 
+  alias Asciinema.Streaming.Alis
+  alias Asciinema.Streaming.{ConsumerSession, StreamServer}
   alias AsciinemaWeb.StreamConsumerSocket
 
   @headers %{"sec-websocket-protocol" => "v1.alis"}
@@ -116,5 +118,37 @@ defmodule AsciinemaWeb.StreamConsumerSocketTest do
     path_params = Map.put_new(conn.path_params, "public_token", List.last(conn.path_info))
 
     StreamConsumerSocket.upgrade(conn, path_params)
+  end
+
+  describe "handle_info/2 with stream updates" do
+    test "maps session decisions onto websock tuples and threads the session through" do
+      state = %{stream_id: "test", session: ConsumerSession.new()}
+
+      early = stream_update(:output, %{id: 1, time: 50, text: "x"})
+      assert {:ok, state} = StreamConsumerSocket.handle_info(early, state)
+
+      info =
+        stream_update(:info, %{
+          last_id: 0,
+          time: 100,
+          term_size: {80, 24},
+          term_theme: nil,
+          term_init: ""
+        })
+
+      assert {:push, {:binary, <<1, _rest::binary>>}, state} =
+               StreamConsumerSocket.handle_info(info, state)
+
+      output = stream_update(:output, %{id: 2, time: 350, text: "x"})
+      assert {:push, {:binary, frame}, _state} = StreamConsumerSocket.handle_info(output, state)
+
+      # rel_time 250 proves the initialized session was threaded back into
+      # socket state by the previous call
+      assert frame == Alis.V1.encode_frame({:output, %{id: 2, rel_time: 250, text: "x"}})
+    end
+  end
+
+  defp stream_update(event, data) do
+    %StreamServer.Update{stream_id: "test", event: event, data: data}
   end
 end
