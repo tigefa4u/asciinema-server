@@ -289,7 +289,7 @@ defmodule AsciinemaWeb.StreamProducerSocket do
         {:stop, :bandwidth_exceeded, {4004, "bandwidth exceeded"}, state}
 
       {:parser, reason, message} ->
-        Logger.warning("producer/#{state.stream_id}: parser error: #{reason}")
+        Logger.warning("producer/#{state.stream_id}: parser error: #{inspect(reason)}")
         Logger.debug("producer/#{state.stream_id}: message: #{inspect(message)}")
 
         {:stop, :message_parsing_error, {4005, "message parsing error"}, state}

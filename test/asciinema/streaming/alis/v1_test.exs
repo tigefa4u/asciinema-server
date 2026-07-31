@@ -104,8 +104,88 @@ defmodule Asciinema.Streaming.Alis.V1Test do
                <<?m, 4, 128, 128, 1, 1, ?x>>
     end
 
+    test "exit" do
+      assert Alis.V1.encode_frame({:exit, %{id: 9, rel_time: 300, status: 1}}) ==
+               <<?x, 9, 172, 2, 1>>
+    end
+
     test "eot is ID-less" do
       assert Alis.V1.encode_frame({:eot, %{rel_time: 100}}) == <<4, 100>>
+    end
+  end
+
+  describe "decode_frame/1" do
+    test "decodes golden frames" do
+      assert Alis.V1.decode_frame(<<1, 5, 100, 80, 24, 0, 0>>) ==
+               {:ok,
+                {:init,
+                 %{last_id: 5, time: 100, term_size: {80, 24}, term_theme: nil, term_init: ""}}}
+
+      assert Alis.V1.decode_frame(<<?o, 2, 172, 2, 5>> <> "hello") ==
+               {:ok, {:output, %{id: 2, rel_time: 300, text: "hello"}}}
+
+      assert Alis.V1.decode_frame(<<?i, 7, 1, 0>>) ==
+               {:ok, {:input, %{id: 7, rel_time: 1, text: ""}}}
+
+      assert Alis.V1.decode_frame(<<?r, 3, 0, 100, 50>>) ==
+               {:ok, {:resize, %{id: 3, rel_time: 0, term_size: {100, 50}}}}
+
+      assert Alis.V1.decode_frame(<<?m, 4, 255, 127, 3>> <> "ch1") ==
+               {:ok, {:marker, %{id: 4, rel_time: 16_383, label: "ch1"}}}
+
+      assert Alis.V1.decode_frame(<<?x, 9, 172, 2, 1>>) ==
+               {:ok, {:exit, %{id: 9, rel_time: 300, status: 1}}}
+
+      assert Alis.V1.decode_frame(<<4, 100>>) == {:ok, {:eot, %{rel_time: 100}}}
+    end
+
+    test "decodes a themed init" do
+      theme = %{fg: {1, 2, 3}, bg: {4, 5, 6}, palette: for(i <- 10..17, do: {i, i, i})}
+
+      frame =
+        Alis.V1.encode_frame(
+          {:init, %{last_id: 1, time: 2, term_size: {80, 24}, term_theme: theme, term_init: "a"}}
+        )
+
+      assert Alis.V1.decode_frame(frame) ==
+               {:ok,
+                {:init,
+                 %{last_id: 1, time: 2, term_size: {80, 24}, term_theme: theme, term_init: "a"}}}
+    end
+
+    test "is symmetric with encode_frame for every event type" do
+      events = [
+        {:output, %{id: 1, rel_time: 16_384, text: "żółć"}},
+        {:input, %{id: 2, rel_time: 0, text: ""}},
+        {:resize, %{id: 3, rel_time: 5, term_size: {1, 1}}},
+        {:marker, %{id: 4, rel_time: 7, label: "m"}},
+        {:exit, %{id: 5, rel_time: 9, status: 130}},
+        {:eot, %{rel_time: 11}}
+      ]
+
+      for event <- events do
+        assert Alis.V1.decode_frame(Alis.V1.encode_frame(event)) == {:ok, event}
+      end
+    end
+
+    test "rejects malformed input with errors instead of raising" do
+      assert Alis.V1.decode_frame(<<>>) == {:error, :empty_frame}
+      assert Alis.V1.decode_frame(<<?z, 1>>) == {:error, {:unknown_frame_type, ?z}}
+      assert Alis.V1.decode_frame(<<?o, 1>>) == {:error, :truncated_varint}
+      assert Alis.V1.decode_frame(<<?o, 1, 128>>) == {:error, :truncated_varint}
+      assert Alis.V1.decode_frame(<<?o, 1, 0, 5, "ab">>) == {:error, :truncated_string}
+      assert Alis.V1.decode_frame(<<4, 100, 9>>) == {:error, :trailing_data}
+
+      assert Alis.V1.decode_frame(<<1, 0, 0, 80, 24, 7, 0>>) ==
+               {:error, {:invalid_theme_format, 7}}
+    end
+
+    test "limits varints to 10-byte u64 values" do
+      eleven_bytes = :binary.copy(<<128>>, 10) <> <<1>>
+      over_u64 = :binary.copy(<<128>>, 9) <> <<2>>
+
+      assert Alis.V1.decode_frame(<<?i>> <> eleven_bytes) == {:error, :varint_too_long}
+      assert Alis.V1.decode_frame(<<?i>> <> over_u64) == {:error, :varint_overflow}
     end
   end
 end
