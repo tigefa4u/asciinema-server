@@ -50,12 +50,18 @@ defmodule AsciinemaWeb.StreamProducerSocket do
       stream ->
         Logger.info("producer/#{stream.id}: connected")
         {session, effects} = ProducerSession.new(protocol, bucket_opts())
-        state = %{stream_id: stream.id, user_agent: user_agent, session: session}
+
+        state = %{
+          stream_id: stream.id,
+          user_agent: user_agent,
+          session: session,
+          heartbeat_token: nil
+        }
+
         {:ok, state} = execute_effects(effects, state)
         Process.send_after(self(), :parser_check, @parser_check_timeout)
         Process.send_after(self(), :client_ping, @client_ping_interval)
         Process.send_after(self(), :bucket_fill, bucket_fill_interval())
-        Process.send_after(self(), :server_heartbeat, @server_heartbeat_interval)
 
         if protocol do
           Logger.info("producer/#{stream.id}: negotiated #{protocol} protocol")
@@ -108,9 +114,11 @@ defmodule AsciinemaWeb.StreamProducerSocket do
     {:push, {:ping, ""}, state}
   end
 
-  def handle_info(:server_heartbeat, state) do
+  # a single heartbeat chain per stream start: each {:reset_stream, _} effect
+  # mints a new token, orphaning any chain from a previous init
+  def handle_info({:server_heartbeat, token}, %{heartbeat_token: token} = state) do
     if ProducerSession.online?(state.session) do
-      Process.send_after(self(), :server_heartbeat, @server_heartbeat_interval)
+      Process.send_after(self(), {:server_heartbeat, token}, @server_heartbeat_interval)
 
       case StreamServer.heartbeat(state.stream_id) do
         :ok ->
@@ -123,6 +131,8 @@ defmodule AsciinemaWeb.StreamProducerSocket do
       {:ok, state}
     end
   end
+
+  def handle_info({:server_heartbeat, _stale_token}, state), do: {:ok, state}
 
   def handle_info(:parser_check, state) do
     if ProducerSession.parser_selected?(state.session) do
@@ -165,7 +175,7 @@ defmodule AsciinemaWeb.StreamProducerSocket do
   defp execute_effects(effects, state) do
     Enum.reduce_while(effects, {:ok, state}, fn effect, {:ok, state} ->
       case execute_effect(effect, state) do
-        :ok -> {:cont, {:ok, state}}
+        {:ok, state} -> {:cont, {:ok, state}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
@@ -176,7 +186,7 @@ defmodule AsciinemaWeb.StreamProducerSocket do
     |> Streaming.get_stream()
     |> Streaming.update_stream(protocol: protocol)
 
-    :ok
+    {:ok, state}
   end
 
   defp execute_effect({:reset_stream, args}, state) do
@@ -187,20 +197,23 @@ defmodule AsciinemaWeb.StreamProducerSocket do
     :ok = StreamServer.claim(state.stream_id)
 
     with :ok <- StreamServer.reset(state.stream_id, args, state.user_agent) do
-      Process.send_after(self(), :server_heartbeat, @server_heartbeat_interval)
+      token = make_ref()
+      Process.send_after(self(), {:server_heartbeat, token}, @server_heartbeat_interval)
 
-      :ok
+      {:ok, %{state | heartbeat_token: token}}
     end
   end
 
   defp execute_effect({:stream_event, type, args}, state) do
-    StreamServer.event(state.stream_id, type, args)
+    with :ok <- StreamServer.event(state.stream_id, type, args) do
+      {:ok, state}
+    end
   end
 
   defp execute_effect(:stop_stream, state) do
     stop_server(state.stream_id)
 
-    :ok
+    {:ok, state}
   end
 
   defp stop_server(stream_id) do
