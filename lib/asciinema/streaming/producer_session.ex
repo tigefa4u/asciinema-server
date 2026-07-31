@@ -153,4 +153,9 @@ defmodule Asciinema.Streaming.ProducerSession do
   defp apply_command({:eot, _args}, %{phase: :online} = session) do
     {:ok, [:stop_stream], %{session | phase: :eot, stop_on_close: false}}
   end
+
+  # a valid command in the wrong phase closes instead of crashing the socket
+  defp apply_command({command, _args}, session) do
+    {:error, {:invalid_command, command, session.phase}}
+  end
 end

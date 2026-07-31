@@ -78,6 +78,16 @@ defmodule Asciinema.Streaming.ProducerSessionTest do
              ProducerSession.receive_frame(session, {:binary, init}, 0)
   end
 
+  test "a valid command in the wrong phase errors instead of raising" do
+    {session, _effects} = ProducerSession.new("v1.alis", @bucket_opts)
+    {:ok, [], session} = ProducerSession.receive_frame(session, {:binary, @magic}, 0)
+
+    # legacy EOT is accepted by the parser in its :init phase, but the
+    # session is still in :new
+    assert {:error, {:invalid_command, :eot, :new}, []} =
+             ProducerSession.receive_frame(session, {:binary, <<4, 1, 0>>}, 0)
+  end
+
   test "parser errors are wrapped with the offending frame" do
     {session, _effects} = ProducerSession.new("v1.alis", @bucket_opts)
 

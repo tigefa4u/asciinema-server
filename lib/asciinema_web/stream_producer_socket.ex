@@ -253,6 +253,13 @@ defmodule AsciinemaWeb.StreamProducerSocket do
 
         {:stop, :bandwidth_exceeded, {4004, "bandwidth exceeded"}, state}
 
+      {:invalid_command, command, phase} ->
+        Logger.warning(
+          "producer/#{state.stream_id}: #{command} command not allowed in #{phase} phase"
+        )
+
+        {:stop, :invalid_command, {4005, "message parsing error"}, state}
+
       {:parser, reason, message} ->
         Logger.warning("producer/#{state.stream_id}: parser error: #{inspect(reason)}")
         Logger.debug("producer/#{state.stream_id}: message: #{inspect(message)}")
