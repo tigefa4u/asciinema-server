@@ -109,8 +109,8 @@ defmodule Asciinema.Streaming.Alis.V1Test do
                <<?x, 9, 172, 2, 1>>
     end
 
-    test "eot is ID-less" do
-      assert Alis.V1.encode_frame({:eot, %{rel_time: 100}}) == <<4, 100>>
+    test "eot is a bare control frame" do
+      assert Alis.V1.encode_frame({:eot, %{}}) == <<4>>
     end
   end
 
@@ -136,7 +136,14 @@ defmodule Asciinema.Streaming.Alis.V1Test do
       assert Alis.V1.decode_frame(<<?x, 9, 172, 2, 1>>) ==
                {:ok, {:exit, %{id: 9, rel_time: 300, status: 1}}}
 
-      assert Alis.V1.decode_frame(<<4, 100>>) == {:ok, {:eot, %{rel_time: 100}}}
+      assert Alis.V1.decode_frame(<<4>>) == {:ok, {:eot, %{}}}
+    end
+
+    test "eot decoding ignores any payload" do
+      # bare, one varint, two varints, arbitrary bytes: all mean EOT
+      for frame <- [<<4>>, <<4, 100>>, <<4, 3, 50>>, <<4, "whatever">>] do
+        assert Alis.V1.decode_frame(frame) == {:ok, {:eot, %{}}}
+      end
     end
 
     test "decodes a themed init" do
@@ -160,7 +167,7 @@ defmodule Asciinema.Streaming.Alis.V1Test do
         {:resize, %{id: 3, rel_time: 5, term_size: {1, 1}}},
         {:marker, %{id: 4, rel_time: 7, label: "m"}},
         {:exit, %{id: 5, rel_time: 9, status: 130}},
-        {:eot, %{rel_time: 11}}
+        {:eot, %{}}
       ]
 
       for event <- events do
@@ -174,7 +181,7 @@ defmodule Asciinema.Streaming.Alis.V1Test do
       assert Alis.V1.decode_frame(<<?o, 1>>) == {:error, :truncated_varint}
       assert Alis.V1.decode_frame(<<?o, 1, 128>>) == {:error, :truncated_varint}
       assert Alis.V1.decode_frame(<<?o, 1, 0, 5, "ab">>) == {:error, :truncated_string}
-      assert Alis.V1.decode_frame(<<4, 100, 9>>) == {:error, :trailing_data}
+      assert Alis.V1.decode_frame(<<?i, 1, 0, 0, 9>>) == {:error, :trailing_data}
 
       assert Alis.V1.decode_frame(<<1, 0, 0, 80, 24, 7, 0>>) ==
                {:error, {:invalid_theme_format, 7}}

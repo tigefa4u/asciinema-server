@@ -122,13 +122,17 @@ defmodule Asciinema.Streaming.Parser.AlisV1Test do
     end
 
     test "eot" do
-      result =
-        new()
-        |> parse!("ALiS\x01")
-        |> parse!(<<0x01, encode_init(0, 0, 80, 24, nil, "")::binary>>)
-        |> parse(<<0x04, encode_eot(1, 100_000)::binary>>)
+      # bare form and the CLI's legacy id + time payload are both accepted
+      for eot_frame <- [<<0x04>>, <<0x04, encode_eot(1, 100_000)::binary>>] do
+        result =
+          new()
+          |> parse!("ALiS\x01")
+          |> parse!(<<0x01, encode_init(0, 0, 80, 24, nil, "")::binary>>)
+          |> parse(eot_frame)
 
-      assert {:ok, [eot: %{id: 1, time: 100_000}], _state} = result
+        assert {:ok, [eot: data], _state} = result
+        assert data == %{}
+      end
     end
 
     test "invalid" do

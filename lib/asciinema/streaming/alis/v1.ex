@@ -7,9 +7,8 @@ defmodule Asciinema.Streaming.Alis.V1 do
   # Encoding trusts our own stream state and crashes on invalid input;
   # decoding is total - malformed network input returns {:error, reason}.
   #
-  # EOT is ID-less in both directions here, as documented. The CLI currently
-  # emits a legacy id + time EOT; accepting that form is handled as a
-  # compatibility case by the parser, not by this codec.
+  # EOT is a bare 0x04 control frame; decoding ignores any legacy trailing
+  # payload (one or two varints, depending on the sender's vintage).
 
   alias Asciinema.Leb128
 
@@ -49,8 +48,8 @@ defmodule Asciinema.Streaming.Alis.V1 do
     <<?x>> <> varint(id) <> varint(time) <> varint(status)
   end
 
-  def encode_frame({:eot, %{rel_time: time}}) do
-    <<0x04::8>> <> varint(time)
+  def encode_frame({:eot, %{}}) do
+    <<0x04::8>>
   end
 
   # Decoding
@@ -98,11 +97,8 @@ defmodule Asciinema.Streaming.Alis.V1 do
     end
   end
 
-  def decode_frame(<<0x04::8, rest::binary>>) do
-    with {:ok, time, rest} <- decode_varint(rest),
-         :ok <- ensure_done(rest) do
-      {:ok, {:eot, %{rel_time: time}}}
-    end
+  def decode_frame(<<0x04::8, _rest::binary>>) do
+    {:ok, {:eot, %{}}}
   end
 
   def decode_frame(<<type::8, _rest::binary>>), do: {:error, {:unknown_frame_type, type}}
@@ -130,8 +126,7 @@ defmodule Asciinema.Streaming.Alis.V1 do
 
   # Decoding internals
 
-  @doc "Decodes one capped LEB128 varint; a building block for legacy frame forms."
-  def decode_varint(bytes), do: Leb128.decode(bytes, @varint_options)
+  defp decode_varint(bytes), do: Leb128.decode(bytes, @varint_options)
 
   defp decode_text_event(event, field, bytes) do
     with {:ok, id, rest} <- decode_varint(bytes),

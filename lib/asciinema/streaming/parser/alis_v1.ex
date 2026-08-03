@@ -37,15 +37,10 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
     end
   end
 
-  # The CLI emits EOT with a legacy id + relative time payload, while the
-  # documented (and consumer-emitted) form is ID-less. Until that is
-  # reconciled the producer side keeps accepting the legacy form only.
-  def parse({:binary, <<0x04::8, rest::binary>>}, %{status: status} = state, _now_us)
+  def parse({:binary, <<0x04::8, _::binary>> = frame}, %{status: status} = state, _now_us)
       when status in [:init, :online] do
-    with {:ok, data} <- decode_legacy_eot(rest) do
-      time = state.time_offset + data.time
-
-      {:ok, [eot: %{data | time: time}], %{state | status: :eot}}
+    with {:ok, {:eot, data}} <- Alis.V1.decode_frame(frame) do
+      {:ok, [eot: data], %{state | status: :eot}}
     end
   end
 
@@ -60,14 +55,5 @@ defmodule Asciinema.Streaming.Parser.AlisV1 do
     data = data |> Map.delete(:rel_time) |> Map.put(:time, time)
 
     {time, data}
-  end
-
-  defp decode_legacy_eot(bytes) do
-    with {:ok, id, rest} <- Alis.V1.decode_varint(bytes),
-         {:ok, time, <<>>} <- Alis.V1.decode_varint(rest) do
-      {:ok, %{id: id, time: time}}
-    else
-      _ -> {:error, :invalid_frame}
-    end
   end
 end

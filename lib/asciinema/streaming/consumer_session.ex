@@ -45,10 +45,8 @@ defmodule Asciinema.Streaming.ConsumerSession do
 
   # after EOT events are dropped until the next init, matching the player's
   # own state machine
-  def handle_event(session, :end, %{time: time}) do
-    frame = Alis.V1.encode_frame({:eot, %{rel_time: rel_time(session, time)}})
-
-    {frame, %__MODULE__{init: false, last_event_time: max(time, session.last_event_time)}}
+  def handle_event(session, :end, _data) do
+    {Alis.V1.encode_frame({:eot, %{}}), %{session | init: false}}
   end
 
   defp init(data, opts) do
