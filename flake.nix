@@ -80,10 +80,20 @@
           gnugrep
         ];
 
+        # The app version baked into the release (shown on /about). Overridable
+        # for deploy pipelines via: VERSION=... nix build --impure .#image
+        # Under pure evaluation getEnv returns "", so CI and local builds fall
+        # back to the commit id.
+        appVersion =
+          let v = builtins.getEnv "VERSION";
+          in if v != "" then v else (self.shortRev or self.dirtyShortRev or "dev");
+
         server = beamPackages.mixRelease rec {
           inherit pname;
           version = "1.0.0";
           src = ./.;
+
+          VERSION = appVersion;
 
           mixFodDeps = beamPackages.fetchMixDeps {
             pname = "${pname}-mix-deps";
