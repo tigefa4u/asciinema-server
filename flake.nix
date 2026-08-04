@@ -192,6 +192,10 @@
             fakeRootCommands = ''
               mkdir -p tmp opt var/lib/asciinema var/cache/asciinema
               chmod 1777 tmp
+              # OTP's OS trust store only searches canonical paths; without
+              # this link HTTPS via :httpc fails with :no_cacerts_found
+              mkdir -p etc/ssl/certs
+              ln -s ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt etc/ssl/certs/ca-certificates.crt
               # /opt/app mirrors the legacy image layout (documented bind mounts)
               ln -s ${server} opt/app
               cp ${./.iex.exs} .iex.exs
