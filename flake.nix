@@ -145,25 +145,25 @@
           fontDirectories = [ pkgs.dejavu_fonts ];
         };
 
-        # Exports RELEASE_COOKIE (generated once, persisted in the data dir)
-        # and RELEASE_TMP before handing off to the release scripts. Needed
-        # because the release lives in the read-only Nix store, so the stock
-        # scripts cannot write a generated cookie or runtime sys.config there.
+        # Generates a persistent node cookie in the data dir on first boot
+        # (nixpkgs strips the baked releases/COOKIE); the release scripts
+        # read it via the env.sh fallback.
         imageEntrypoint = pkgs.writeShellScriptBin "image-entrypoint" ''
           set -eu
 
-          export RELEASE_TMP=/tmp
-
           if [ -z "''${RELEASE_COOKIE:-}" ]; then
-            data_dir="''${DATA_DIR:-/var/lib/asciinema}"
-            cookie_file="$data_dir/release_cookie"
-
-            if [ ! -s "$cookie_file" ]; then
-              (umask 077; od -An -tx1 -N32 /dev/urandom | tr -d ' \n' > "$cookie_file")
+            # mirror env.sh's data dir resolution
+            if [ -n "''${DATA_DIR:-}" ]; then
+              data_dir=$DATA_DIR
+            elif [ -d /var/opt/asciinema/uploads ]; then
+              data_dir=/var/opt/asciinema
+            else
+              data_dir=/var/lib/asciinema
             fi
 
-            RELEASE_COOKIE="$(cat "$cookie_file")"
-            export RELEASE_COOKIE
+            if [ ! -s "$data_dir/release_cookie" ]; then
+              (umask 027; od -An -tx1 -N32 /dev/urandom | tr -d ' \n' > "$data_dir/release_cookie")
+            fi
           fi
 
           exec "$@"
@@ -219,6 +219,8 @@
                 "ADMIN_BIND_ALL=1"
                 "DATABASE_URL=postgresql://postgres@postgres/postgres"
                 "CACHE_PATH=/var/cache/asciinema"
+                # static Env so docker exec'd commands see it too
+                "RELEASE_TMP=/tmp"
                 "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
                 "LANG=C.UTF-8"
                 "TZDIR=/share/zoneinfo"
@@ -310,6 +312,19 @@
               machine.wait_for_unit("asciinema-server.service")
               machine.wait_for_open_port(4000)
               machine.succeed("curl -sfL http://127.0.0.1:4000/ | grep -qi asciinema")
+
+              # attach commands work with zero cookie config: env.sh reads
+              # the cookie ExecStartPre persisted in the data dir
+              machine.succeed("${server}/bin/asciinema rpc 'IO.puts(:rpc_ok)' | grep -q rpc_ok")
+              machine.succeed("${server}/bin/send-test-email test@example.com | grep -q ok")
+              machine.succeed("stat -c %a:%U /var/lib/asciinema/release_cookie | grep -qx 600:asciinema")
+
+              # the cookie survives service restarts, so attach keeps working
+              machine.succeed("cp /var/lib/asciinema/release_cookie /root/cookie.before")
+              machine.succeed("systemctl restart asciinema-server")
+              machine.wait_for_open_port(4000)
+              machine.succeed("cmp /root/cookie.before /var/lib/asciinema/release_cookie")
+              machine.succeed("${server}/bin/asciinema rpc 'IO.puts(:rpc_ok)' | grep -q rpc_ok")
             '';
           };
         };
@@ -466,15 +481,12 @@
 
               script = ''
                 [ -n "$SECRET_KEY_BASE" ] || export SECRET_KEY_BASE="$(cat "$HOME/secret_key_base")"
-                [ -n "$RELEASE_COOKIE" ] || export RELEASE_COOKIE="$(cat "$HOME/release_cookie")"
                 ${pkg}/bin/server
               '';
 
               environment = {
-                # Bind epmd to loopback so distributed Erlang isn't exposed on
-                # the network; override via `environment` for multi-host
-                # clustering.
-                ERL_EPMD_ADDRESS = "127.0.0.1";
+                # Keep epmd on its default interfaces so rpc/remote can reach
+                # it through the node hostname; the firewall keeps distribution private.
               }
               // renderedEnvironment
               // lib.optionalAttrs cfg.database.createLocally {
@@ -487,9 +499,7 @@
                 DATA_DIR = cfg.dataDir;
                 CACHE_PATH = "/var/cache/asciinema";
 
-                # The release may write runtime files here; the default
-                # $RELEASE_ROOT/tmp is in the read-only Nix store, so point it
-                # at a writable tmpfs dir.
+                # the default $RELEASE_ROOT/tmp is in the read-only nix store
                 RELEASE_TMP = "/run/asciinema";
               };
 
