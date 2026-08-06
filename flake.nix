@@ -211,7 +211,8 @@
                 "${imageEntrypoint}/bin/image-entrypoint"
               ];
               Cmd = [ "/opt/app/bin/server" ];
-              WorkingDir = "/";
+              # legacy (Docker) image parity
+              WorkingDir = "/opt/app";
               ExposedPorts."4000/tcp" = { };
 
               Env = [
