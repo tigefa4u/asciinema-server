@@ -328,6 +328,83 @@
               machine.succeed("${server}/bin/asciinema rpc 'IO.puts(:rpc_ok)' | grep -q rpc_ok")
             '';
           };
+
+          # Boots the actual OCI image under podman - tini, entrypoint and
+          # baked Env, which the module check cannot see.
+          oci-image = pkgs.testers.runNixOSTest {
+            name = "asciinema-server-oci-image";
+
+            nodes.machine =
+              { pkgs, ... }:
+              let
+                customExs = pkgs.writeText "custom.exs" ''
+                  import Config
+                  config :asciinema, oci_check_probe: "loaded"
+                '';
+              in
+              {
+                services.postgresql = {
+                  enable = true;
+                  # the container reaches the host database over loopback
+                  authentication = pkgs.lib.mkForce ''
+                    local all all trust
+                    host all all 127.0.0.1/32 trust
+                    host all all ::1/128 trust
+                  '';
+                  ensureDatabases = [ "asciinema" ];
+                  ensureUsers = [
+                    {
+                      name = "asciinema";
+                      ensureDBOwnership = true;
+                    }
+                  ];
+                };
+
+                virtualisation.oci-containers = {
+                  backend = "podman";
+
+                  containers.asciinema = {
+                    # both must match the streamLayeredImage name/tag
+                    image = "asciinema-server:latest";
+                    imageStream = self.packages.${pkgs.stdenv.hostPlatform.system}.image;
+                    extraOptions = [ "--network=host" ];
+                    volumes = [ "${customExs}:/opt/app/etc/custom.exs" ];
+
+                    environment = {
+                      DATABASE_URL = "postgresql://asciinema@127.0.0.1/asciinema";
+                      SECRET_KEY_BASE = "oci-check-secret-key-base-oci-check-secret-key-base-oci-check-64";
+                      URL_HOST = "localhost";
+                    };
+                  };
+                };
+
+                environment.systemPackages = [ pkgs.curl ];
+                virtualisation.memorySize = 2048;
+                virtualisation.diskSize = 4096;
+              };
+
+            testScript = ''
+              machine.wait_for_unit("postgresql.service")
+              machine.wait_for_unit("podman-asciinema.service")
+              machine.wait_for_open_port(4000)
+              machine.succeed("curl -sfL http://127.0.0.1:4000/ | grep -qi asciinema")
+
+              # attach commands prove the entrypoint/env.sh cookie contract
+              machine.succeed("podman exec asciinema /opt/app/bin/asciinema rpc 'IO.puts(:rpc_ok)' | grep -q rpc_ok")
+              machine.succeed("podman exec asciinema /opt/app/bin/send-test-email test@example.com | grep -q ok")
+              machine.succeed("podman exec asciinema stat -c %a /var/lib/asciinema/release_cookie | grep -qx 640")
+
+              # regression guard: OTP finds the CA bundle at the canonical path
+              certs = machine.succeed("podman exec asciinema /opt/app/bin/asciinema eval 'IO.puts(length(:public_key.cacerts_get()))'")
+              assert int(certs.strip()) > 0, f"no CA certificates loaded: {certs}"
+
+              # the custom.exs bind mount reaches the config provider
+              machine.succeed("podman exec asciinema /opt/app/bin/asciinema rpc 'IO.puts(Application.get_env(:asciinema, :oci_check_probe))' | grep -qx loaded")
+
+              # the entrypoint provisions the cookie for command overrides too
+              machine.succeed("podman run --rm localhost/asciinema-server:latest /opt/app/bin/asciinema version | grep -q asciinema")
+            '';
+          };
         };
       }
     )
