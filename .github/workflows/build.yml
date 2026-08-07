@@ -1,4 +1,4 @@
-name: Nix package build
+name: Build
 
 on:
   push:
@@ -23,3 +23,5 @@ jobs:
         primary-key: nix-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
         restore-prefixes-first-match: nix-build-${{ runner.os }}-${{ runner.arch }}
     - run: nix build .#default .#image
+    # the VM checks need KVM, which GitHub-hosted Linux runners provide
+    - run: nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.oci-image
