@@ -136,13 +136,8 @@ librejs_license =
 
 librejs_license_end = "/* @license-end */"
 
-# Keep this version in sync with the nixpkgs esbuild used by the nix package
-# build (flake.nix bakes its store path via preConfigure), so dev/CI/Docker
-# produce the same JS/CSS output as the production artifact.
-#
-# MIX_ESBUILD_PATH (exported by the nix dev shells) points mix at the
-# nix-provided esbuild binary, skipping the download in assets.setup.
-# When unset (non-nix environments), the standard download path applies.
+# Keep the version in sync with the nixpkgs esbuild (see flake.nix).
+# MIX_ESBUILD_PATH, set by the nix shells, skips the binary download.
 config :esbuild,
   version: "0.27.2",
   path: System.get_env("MIX_ESBUILD_PATH"),
@@ -160,9 +155,8 @@ config :esbuild,
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ],
-  # The browser-list target (instead of es2022) makes esbuild lower CSS
-  # nesting for browsers without native support; this matters most for
-  # iframe.css, which third-party embed visitors load.
+  # browser targets make esbuild lower CSS nesting for browsers without
+  # native support
   css: [
     args:
       ~w(css/app.css css/iframe.css --bundle --target=chrome111,firefox117,safari16.5 --outdir=../priv/static/assets --entry-names=[name] --external:/fonts/* --external:/images/*),

@@ -50,8 +50,6 @@
           export MIX_REBAR3="${beamPackages.rebar3}/bin/rebar3"
           export PATH=$MIX_HOME/bin:$HEX_HOME/bin:$PATH
 
-          # use the nix-provided esbuild instead of downloading the binary
-          # in assets.setup (config.exs reads this into :esbuild, :path)
           export MIX_ESBUILD_PATH="${pkgs.esbuild}/bin/esbuild"
         '';
 
@@ -80,10 +78,8 @@
           gnugrep
         ];
 
-        # The app version baked into the release (shown on /about). Overridable
-        # for deploy pipelines via: VERSION=... nix build --impure .#image
-        # Under pure evaluation getEnv returns "", so CI and local builds fall
-        # back to the commit id.
+        # App version shown on /about; deploy pipelines override it with:
+        # VERSION=... nix build --impure .#image
         appVersion =
           let v = builtins.getEnv "VERSION";
           in if v != "" then v else (self.shortRev or self.dirtyShortRev or "dev");
@@ -122,10 +118,8 @@
 
           nativeBuildInputs = [ pkgs.removeReferencesTo ];
 
-          # preConfigure bakes the esbuild store path into config, which ends
-          # up in sys.config. It is build-time only (assets.deploy); scrub the
-          # reference so it doesn't bloat the runtime closure, and fail the
-          # build if it ever reappears.
+          # Scrub the build-time-only esbuild store path baked by preConfigure
+          # so it doesn't bloat the runtime closure; fail if it reappears.
           #
           # Then make the release self-contained: env.sh (sourced by every
           # bin/* command) gets the runtime tools on PATH plus the font setup
@@ -179,10 +173,8 @@
         packages = {
           default = server;
         }
-        # The OCI image is Linux-only
         // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
-          # OCI image, a drop-in replacement for the Dockerfile-built one.
-          # Build and load: nix build .#image && ./result | podman load
+          # OCI image, a drop-in replacement for the Dockerfile-built one
           image = pkgs.dockerTools.streamLayeredImage {
             name = "asciinema-server";
             tag = "latest";
@@ -200,8 +192,7 @@
             fakeRootCommands = ''
               mkdir -p tmp opt var/lib/asciinema var/cache/asciinema
               chmod 1777 tmp
-              # /opt/app mirrors the legacy image layout, keeping documented
-              # bind mounts like /opt/app/etc/custom.exs working
+              # /opt/app mirrors the legacy image layout (documented bind mounts)
               ln -s ${server} opt/app
               cp ${./.iex.exs} .iex.exs
               # support running as an arbitrary uid (gid 0), like the legacy image
