@@ -8,7 +8,7 @@ defmodule Asciinema.Accounts do
   alias Phoenix.Token
   require Logger
 
-  @valid_email_re ~r/^[A-Z0-9._%+-]+@([A-Z0-9-]+\.)+[A-Z]{2,}$/i
+  @valid_email_re ~r/^[A-Z0-9_%+-]+(\.[A-Z0-9_%+-]+)*@([A-Z0-9-]+\.)+[A-Z]{2,}$/i
   @valid_username_re ~r/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/
   @email_hash_bytes 8
 
