@@ -14,11 +14,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: nixbuild/nix-quick-install-action@v30
+    - uses: actions/checkout@v7
+    - uses: nixbuild/nix-quick-install-action@v35
       with:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
-    - uses: nix-community/cache-nix-action@v6
+    - uses: nix-community/cache-nix-action@v7
       with:
         primary-key: nix-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
         restore-prefixes-first-match: nix-build-${{ runner.os }}-${{ runner.arch }}
