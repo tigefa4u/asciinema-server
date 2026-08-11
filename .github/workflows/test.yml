@@ -13,6 +13,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
 
     services:
       postgres:
@@ -33,8 +35,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: nixbuild/nix-quick-install-action@v35
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - uses: nix-community/cache-nix-action@v7
         with:
           primary-key: nix-test-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
