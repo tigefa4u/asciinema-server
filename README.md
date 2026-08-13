@@ -52,9 +52,15 @@ further details.
 
 ## Development
 
-The recommended way to work on the server is the Nix dev shell, which provides
-the complete toolchain (Elixir, Node.js, Rust, and supporting tools) and just
-works:
+To work on the server, first download the source code:
+
+```sh
+git clone https://github.com/asciinema/asciinema-server
+cd asciinema-server
+```
+
+The recommended way to get the toolchain is the Nix dev shell, which provides
+everything needed (Elixir, Node.js, Rust, and supporting tools) and just works:
 
 ```sh
 nix develop
@@ -63,10 +69,10 @@ nix develop
 If you don't use Nix, you need Elixir (1.19 or later), Erlang/OTP (28 or
 later), Node.js, and the Rust toolchain (used for the native NIFs).
 
-In both cases a running PostgreSQL server is required.
+Either way, a running PostgreSQL server is required.
 
-Run `mix setup` to install dependencies, set up the database and build assets,
-then `just serve` (or `iex -S mix phx.server`) to start the server, and
+Then run `mix setup` to install dependencies, set up the database and build
+assets, `just serve` (or `iex -S mix phx.server`) to start the server, and
 `mix test` to run the tests.
 
 If you'd like to propose or submit any changes, please read the
